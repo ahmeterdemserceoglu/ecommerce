@@ -1,22 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { TaxService } from "@/lib/tax/tax-service"
-import { getUser } from "@/lib/utils"
 import { createClient } from "@supabase/supabase-js"
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Oturum açmanız gerekiyor",
-        },
-        { status: 401 },
-      )
-    }
-
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || "",
       process.env.SUPABASE_SERVICE_ROLE_KEY || "",

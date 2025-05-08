@@ -21,7 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label, Textarea } from "@/components/ui/label"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { getSignedImageUrlForAny } from "@/lib/get-signed-url"
 
 export default function StorePage({ params }: { params: Promise<{ slug: string }> }) {
