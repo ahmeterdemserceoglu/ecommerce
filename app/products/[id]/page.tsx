@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { notFound } from "next/navigation"
 import ProductReviews from "@/components/product/ProductReviews"
-import SimilarProducts from "@/components/product/SimilarProducts"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -124,12 +123,6 @@ export default async function ProductPage({ params }: { params: { id: string } }
       {/* Ürün Değerlendirmeleri */}
       <div className="mt-12">
         <ProductReviews productId={product.id} />
-      </div>
-
-      {/* Benzer Ürünler */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-semibold mb-6">Benzer Ürünler</h2>
-        <SimilarProducts productId={product.id} categoryId={product.category.id} limit={4} />
       </div>
     </div>
   )

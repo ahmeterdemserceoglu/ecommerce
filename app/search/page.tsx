@@ -1,9 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import SearchBar from "@/components/search/SearchBar"
-import FilterPanel from "@/components/search/FilterPanel"
-import ProductGrid from "@/components/search/ProductGrid"
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
@@ -48,9 +45,7 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
-      <SearchBar onSearch={(q) => fetchProducts(q)} />
       <div className="flex flex-col md:flex-row gap-8 mt-8">
-        <FilterPanel filters={filters} setFilters={setFilters} />
         <div className="flex-1">
           {loading ? (
             <div className="text-center py-12 text-gray-500">Yükleniyor...</div>
