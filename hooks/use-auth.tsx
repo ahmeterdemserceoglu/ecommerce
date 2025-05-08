@@ -5,7 +5,7 @@ import type * as React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 type User = {
   id: string
@@ -423,7 +423,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       toast({
-        title: "Kay��t başarısız",
+        title: "Kayıt başarısız",
         description: errorMessage,
         variant: "destructive",
       })
