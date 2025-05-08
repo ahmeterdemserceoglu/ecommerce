@@ -48,6 +48,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useDatabaseBackup } from "./database-backup"
 
 export default function DatabasePage() {
   const router = useRouter()
@@ -65,11 +66,14 @@ export default function DatabasePage() {
     lastBackup: null,
     dbSize: null,
   })
-  const [backupProgress, setBackupProgress] = useState(0)
-  const [isBackingUp, setIsBackingUp] = useState(isBackingUp)
+  const {
+    backupProgress,
+    isBackingUp,
+    backupErrors,
+    handleBackupDatabase,
+  } = useDatabaseBackup(dbStats, setDbStats)
   const [needsUpdate, setNeedsUpdate] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [backupErrors, setBackupErrors] = useState<string[]>([])
   const supabase = createClientComponentClient()
 
   // Şifreli sıfırlama ve temizleme için state
@@ -199,163 +203,6 @@ export default function DatabasePage() {
       })
     } finally {
       setIsExecuting(false)
-    }
-  }
-
-  // Helper function to safely fetch table data with retries
-  const safelyFetchTable = async (table: string, retries = 3): Promise<any[]> => {
-    try {
-      // Check if table exists first
-      const { data: existsData, error: existsError } = await supabase
-        .rpc("check_table_exists", {
-          table_name: table,
-        })
-        .single()
-
-      const tableExists = existsData?.exists || false
-
-      if (existsError || !tableExists) {
-        console.log(`Table ${table} does not exist or cannot be accessed, skipping...`)
-        return []
-      }
-
-      // Try to fetch with a reasonable limit to avoid memory issues
-      const { data, error } = await supabase.from(table).select("*").limit(10000)
-
-      if (error) {
-        throw error
-      }
-
-      return data || []
-    } catch (error) {
-      if (retries > 0) {
-        console.log(`Retrying fetch for table ${table}, ${retries} attempts left...`)
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Wait 1 second before retry
-        return safelyFetchTable(table, retries - 1)
-      }
-
-      console.error(`Failed to fetch table ${table} after multiple attempts:`, error)
-      throw error
-    }
-  }
-
-  // Tablo şemasını almak için fonksiyon
-  async function getTableSchema(table: string) {
-    const { data, error } = await supabase
-      .from("information_schema.columns")
-      .select("column_name, data_type, is_nullable, column_default")
-      .eq("table_schema", "public")
-      .eq("table_name", table)
-      .order("ordinal_position", { ascending: true })
-
-    if (error || !data) return ""
-
-    const columns = data
-      .map((col: any) => {
-        let colDef = `"${col.column_name}" ${col.data_type}`
-        if (col.is_nullable === "NO") colDef += " NOT NULL"
-        if (col.column_default) colDef += ` DEFAULT ${col.column_default}`
-        return colDef
-      })
-      .join(",\n  ")
-
-    return `CREATE TABLE IF NOT EXISTS "${table}" (\n  ${columns}\n);\n`
-  }
-
-  // Tablo verilerini SQL'e dönüştürmek için fonksiyon
-  function getInsertStatements(table: string, rows: any[]) {
-    if (!rows || rows.length === 0) return ""
-    const columns = Object.keys(rows[0])
-    const values = rows.map(
-      (row) =>
-        "(" +
-        columns.map((col) => (row[col] === null ? "NULL" : `'${String(row[col]).replace(/'/g, "''")}'`)).join(", ") +
-        ")",
-    )
-    return `INSERT INTO "${table}" (${columns.map((c) => `"${c}"`).join(", ")}) VALUES\n${values.join(",\n")};\n`
-  }
-
-  // handleBackupDatabase fonksiyonunu güncelle
-  const handleBackupDatabase = async () => {
-    setIsBackingUp(true)
-    setBackupProgress(0)
-    setBackupErrors([])
-
-    try {
-      let tables: string[] = []
-      try {
-        const { data: tableData, error: tableError } = await supabase
-          .from("information_schema.tables")
-          .select("table_name")
-          .eq("table_schema", "public")
-          .eq("table_type", "BASE TABLE")
-        if (tableError || !tableData) {
-          tables = Object.keys(dbStats.rows)
-        } else {
-          tables = tableData.map((t: any) => t.table_name)
-        }
-      } catch (error) {
-        tables = Object.keys(dbStats.rows)
-      }
-
-      const totalTables = tables.length
-      const errors: string[] = []
-      let sqlDump = ""
-
-      for (let i = 0; i < totalTables; i++) {
-        const table = tables[i]
-        try {
-          // Şema
-          const schema = await getTableSchema(table)
-          sqlDump += schema + "\n"
-          // Veri
-          const data = await safelyFetchTable(table)
-          sqlDump += getInsertStatements(table, data) + "\n"
-        } catch (error: any) {
-          console.error(`Error backing up table ${table}:`, error)
-          errors.push(`${table}: ${error.message || "Unknown error"}`)
-        }
-        setBackupProgress(Math.round(((i + 1) / totalTables) * 100))
-      }
-
-      if (errors.length > 0) {
-        setBackupErrors(errors)
-        toast({
-          title: "Uyarı",
-          description: `Bazı tablolar yedeklenemedi (${errors.length}/${totalTables}). Detaylar için hata listesine bakın.`,
-          variant: "destructive",
-        })
-      }
-
-      // SQL dosyasını indir
-      const blob = new Blob([sqlDump], { type: "text/sql" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `database_backup_${new Date().toISOString().slice(0, 10)}.sql`
-      link.click()
-      URL.revokeObjectURL(url)
-
-      // Save backup date
-      const now = new Date().toLocaleString("tr-TR")
-      localStorage.setItem("lastBackupDate", now)
-      setDbStats({ ...dbStats, lastBackup: now })
-
-      if (errors.length === 0) {
-        toast({
-          title: "Başarılı",
-          description: "Veritabanı yedeklemesi başarıyla tamamlandı.",
-        })
-      }
-    } catch (error: any) {
-      console.error("Error backing up database:", error)
-      toast({
-        title: "Hata",
-        description: `Veritabanı yedeklenirken bir hata oluştu: ${error.message || "Bilinmeyen hata"}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsBackingUp(false)
     }
   }
 
