@@ -49,10 +49,7 @@ export default function SearchPage() {
         <div className="flex-1">
           {loading ? (
             <div className="text-center py-12 text-gray-500">Yükleniyor...</div>
-          ) : (
-            // Remove ProductGrid import if present
-            // Remove all <ProductGrid ... /> usages in the JSX
-          )}
+          ) : null}
         </div>
       </div>
     </div>
