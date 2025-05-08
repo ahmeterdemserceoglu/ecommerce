@@ -50,7 +50,8 @@ export default function SearchPage() {
           {loading ? (
             <div className="text-center py-12 text-gray-500">Yükleniyor...</div>
           ) : (
-            <ProductGrid products={products} />
+            // Remove ProductGrid import if present
+            // Remove all <ProductGrid ... /> usages in the JSX
           )}
         </div>
       </div>
