@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
             htmlContent = htmlContent.replace(/{{[ .]*Email[ .]*}}/g, email);
             htmlContent = htmlContent.replace(/{{[ .]*ConfirmationURL[ .]*}}/g, confirmationUrl);
             // SiteURL gibi diğer değişkenleri de ekleyebilirsiniz
-            htmlContent = htmlContent.replace(/{{[ .]*SiteURL[ .]*}}/g, process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
+            htmlContent = htmlContent.replace(/{{[ .]*SiteURL[ .]*}}/g, process.env.NEXT_PUBLIC_SITE_URL || "https://www.hdticaret.com/");
             // Yıl değişkeni için özel mantık
             htmlContent = htmlContent.replace(/{{[ .]*now.Year[ .]*}}/g, new Date().getFullYear().toString());
 
