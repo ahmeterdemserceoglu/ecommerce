@@ -3,7 +3,7 @@ import '../models/product.dart';
 import '../services/api_service.dart';
 
 class ProductsProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService;
   List<Product> _products = [];
   Product? _selectedProduct;
   bool _isLoading = false;
@@ -14,6 +14,8 @@ class ProductsProvider with ChangeNotifier {
   String? _searchQuery;
   String? _statusFilter;
   String? _categoryIdFilter;
+
+  ProductsProvider({required ApiService apiService}) : _apiService = apiService;
 
   List<Product> get products => _products;
   Product? get selectedProduct => _selectedProduct;

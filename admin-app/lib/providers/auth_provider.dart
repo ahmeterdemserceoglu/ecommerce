@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../models/user.dart';
 
 class AuthProvider with ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
+  final ApiService _apiService;
   User? _currentUser;
   bool _isLoading = false;
   String? _error;
@@ -16,24 +18,37 @@ class AuthProvider with ChangeNotifier {
   bool get rememberMe => _rememberMe;
   set rememberMe(bool value) {
     _rememberMe = value;
-    notifyListeners();
   }
 
-  Future<bool> isLoggedIn({bool rememberMe = false}) async {
+  AuthProvider(
+      {required AuthService authService, required ApiService apiService})
+      : _authService = authService,
+        _apiService = apiService;
+
+  Future<bool> tryAutoLogin() async {
     _isLoading = true;
     notifyListeners();
-
     try {
-      final isValid = await _authService.isTokenValid(rememberMe: rememberMe);
-      if (isValid) {
-        _currentUser = await _authService.getCurrentUser();
+      final token = await _authService.getToken();
+      if (token != null && token.isNotEmpty) {
+        final isValid =
+            await _authService.isTokenValid(rememberMe: _rememberMe);
+        if (isValid) {
+          _apiService.setToken(token);
+          _currentUser = await _authService.getCurrentUser();
+          _isLoading = false;
+          notifyListeners();
+          return true;
+        }
       }
       _isLoading = false;
+      _apiService.setToken('');
       notifyListeners();
-      return isValid;
+      return false;
     } catch (e) {
       _isLoading = false;
-      _error = 'Oturum doğrulanamadı: $e';
+      _error = 'Oturum otomatik doğrulanamadı: $e';
+      _apiService.setToken('');
       notifyListeners();
       return false;
     }
@@ -48,6 +63,15 @@ class AuthProvider with ChangeNotifier {
     try {
       _currentUser =
           await _authService.login(email, password, rememberMe: rememberMe);
+      final token = await _authService.getToken();
+      if (token != null && token.isNotEmpty) {
+        _apiService.setToken(token);
+      } else {
+        _apiService.setToken('');
+        _currentUser = null;
+        throw Exception("Oturum token\'ı alınamadı.");
+      }
+
       _isLoading = false;
       _rememberMe = rememberMe;
       notifyListeners();
@@ -55,6 +79,7 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       _error = 'Giriş başarısız: $e';
+      _apiService.setToken('');
       notifyListeners();
       return false;
     }
@@ -67,6 +92,7 @@ class AuthProvider with ChangeNotifier {
     try {
       await _authService.logout();
       _currentUser = null;
+      _apiService.setToken('');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -77,7 +103,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> checkAdminAccess() async {
-    return await _authService.hasAdminAccess();
+    return _currentUser?.role == 'admin';
   }
 
   void clearError() {

@@ -147,6 +147,10 @@ class AuthService {
     }
   }
 
+  Future<String?> getToken() async {
+    return await _storage.read(key: 'token');
+  }
+
   Future<models.User?> getProfile() async {
     try {
       final response = await http.get(
