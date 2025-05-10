@@ -8,6 +8,9 @@ class Product {
   final String? sku;
   final String? category;
   final double? weight;
+  final String? categoryId;
+  final String? categoryName;
+  final String? status;
 
   Product({
     required this.id,
@@ -19,19 +22,25 @@ class Product {
     this.sku,
     this.category,
     this.weight,
+    this.categoryId,
+    this.categoryName,
+    this.status,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      price: json['price'].toDouble(),
-      imageUrl: json['imageUrl'],
-      stock: json['stock'],
-      sku: json['sku'],
-      category: json['category'],
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      price: (json['price'] as num).toDouble(),
+      imageUrl: json['imageUrl'] as String?,
+      stock: json['stock'] as int,
+      sku: json['sku'] as String?,
+      category: json['category'] as String?,
       weight: json['weight']?.toDouble(),
+      categoryId: json['categoryId'] as String?,
+      categoryName: json['categoryName'] as String?,
+      status: json['status'] as String?,
     );
   }
 
@@ -46,6 +55,9 @@ class Product {
       'sku': sku,
       'category': category,
       'weight': weight,
+      'categoryId': categoryId,
+      'categoryName': categoryName,
+      'status': status,
     };
   }
 
@@ -59,6 +71,9 @@ class Product {
     String? sku,
     String? category,
     double? weight,
+    String? categoryId,
+    String? categoryName,
+    String? status,
   }) {
     return Product(
       id: id ?? this.id,
@@ -70,6 +85,9 @@ class Product {
       sku: sku ?? this.sku,
       category: category ?? this.category,
       weight: weight ?? this.weight,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      status: status ?? this.status,
     );
   }
 }

@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.error ?? 'Login failed'),
+            content: Text(authProvider.error ?? 'Giriş başarısız'),
             backgroundColor: Colors.red,
           ),
         );
@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: const Color(0xFFF8F9FB),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -64,56 +64,119 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // Logo or app name
                 Text(
-                  'Admin Panel',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  'HD Ticaret',
+                  style: TextStyle(
+                    color: Color(0xFFFF8000),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 36,
+                  ),
                 ),
-
-                const SizedBox(height: 40),
-
+                const SizedBox(height: 8),
+                Text(
+                  'ADMIN',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+                const SizedBox(height: 32),
                 Card(
                   elevation: 4,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(32.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Log In',
-                          style: Theme.of(context).textTheme.headlineMedium,
+                          'Hoş Geldiniz!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.black,
+                          ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Hesabınıza giriş yaparak devam edin.',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.black54,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
                         Form(
                           key: _formKey,
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Email field
+                              Text(
+                                'E-posta Adresiniz',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               TextFormField(
                                 controller: _emailController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: Icon(Icons.email),
+                                decoration: InputDecoration(
+                                  hintText: 'E-posta adresinizi girin',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF3F6FA),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none,
+                                  ),
                                 ),
                                 keyboardType: TextInputType.emailAddress,
                                 validator: validateEmail,
                                 autovalidateMode:
                                     AutovalidateMode.onUserInteraction,
                               ),
-
-                              const SizedBox(height: 16),
-
-                              // Password field
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Şifre',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      // Şifremi unuttum fonksiyonu eklenebilir
+                                    },
+                                    child: Text(
+                                      'Şifremi Unuttum?',
+                                      style: TextStyle(
+                                        color: Color(0xFFFF8000),
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
                               TextFormField(
                                 controller: _passwordController,
                                 decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: const Icon(Icons.lock),
+                                  hintText: 'Şifrenizi girin',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF3F6FA),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none,
+                                  ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       _obscurePassword
@@ -130,42 +193,65 @@ class _LoginScreenState extends State<LoginScreen> {
                                 obscureText: _obscurePassword,
                                 validator: validatePassword,
                               ),
-
                               const SizedBox(height: 24),
-
                               Row(
                                 children: [
                                   Checkbox(
                                     value: _rememberMe,
-                                    onChanged: (val) {
+                                    onChanged: (value) {
                                       setState(() {
-                                        _rememberMe = val ?? false;
+                                        _rememberMe = value ?? false;
                                       });
-                                      authProvider.rememberMe = val ?? false;
                                     },
                                   ),
                                   const Text('Beni Hatırla'),
                                 ],
                               ),
-
-                              const SizedBox(height: 24),
-
-                              // Login button
+                              const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
                                 height: 50,
                                 child: ElevatedButton(
                                   onPressed:
                                       authProvider.isLoading ? null : _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF8000),
+                                    foregroundColor: Colors.white,
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
                                   child: authProvider.isLoading
                                       ? const CircularProgressIndicator(
                                           color: Colors.white)
-                                      : const Text('Login',
-                                          style: TextStyle(fontSize: 16)),
+                                      : const Text('Giriş Yap'),
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('Hesabınız yok mu? '),
+                            GestureDetector(
+                              onTap: () {
+                                // Kayıt olma sayfasına yönlendirme eklenebilir
+                              },
+                              child: const Text(
+                                'Hemen Kayıt Olun',
+                                style: TextStyle(
+                                  color: Color(0xFFFF8000),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

@@ -103,7 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: const Text('Yönetim Paneli'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -111,14 +111,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _loadDashboardData();
               _loadDatabaseHealth();
             },
-            tooltip: 'Refresh',
+            tooltip: 'Yenile',
           ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
               Provider.of<AuthProvider>(context, listen: false).logout();
             },
-            tooltip: 'Logout',
+            tooltip: 'Çıkış Yap',
           ),
         ],
       ),
@@ -137,14 +137,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Welcome to Admin Dashboard',
+                      'Yönetim Paneline Hoş Geldiniz',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
 
                     const SizedBox(height: 8),
 
                     Text(
-                      'Here\'s what\'s happening with your store today',
+                      'Bugün mağazanızda neler oluyor?',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
 
@@ -212,36 +212,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatsCards({required int crossAxisCount}) {
     final stats = [
       StatsCard(
-        title: 'Total Products',
+        title: 'Toplam Ürün',
         value: _stats['products']?['totalCount']?.toString() ?? '0',
         icon: Icons.shopping_bag,
         color: Colors.blue,
-        subtitle:
-            '${_stats['products']?['pendingCount'] ?? 0} pending approval',
+        subtitle: '${_stats['products']?['pendingCount'] ?? 0} onay bekliyor',
       ),
       StatsCard(
-        title: 'Today\'s Orders',
+        title: 'Bugünkü Siparişler',
         value: _stats['orders']?['todayCount']?.toString() ?? '0',
         icon: Icons.receipt_long,
         color: Colors.orange,
         subtitle:
-            '${_stats['orders']?['todayRevenue'] != null ? '\$${_stats['orders']?['todayRevenue']}' : '\$0'} revenue',
+            '${_stats['orders']?['todayRevenue'] != null ? '${_stats['orders']?['todayRevenue']}₺' : '0₺'} ciro',
       ),
       StatsCard(
-        title: 'Active Stores',
+        title: 'Aktif Mağaza',
         value: _stats['stores']?['activeCount']?.toString() ?? '0',
         icon: Icons.store,
         color: Colors.green,
-        subtitle: '${_stats['stores']?['pendingCount'] ?? 0} pending approval',
+        subtitle: '${_stats['stores']?['pendingCount'] ?? 0} onay bekliyor',
       ),
       StatsCard(
-        title: 'Total Revenue',
+        title: 'Toplam Ciro',
         value: _stats['orders']?['totalRevenue'] != null
-            ? '\$${_stats['orders']?['totalRevenue']}'
-            : '\$0',
+            ? '${_stats['orders']?['totalRevenue']}₺'
+            : '0₺',
         icon: Icons.attach_money,
         color: Colors.purple,
-        subtitle: 'All time',
+        subtitle: 'Tüm zamanlar',
       ),
     ];
 
@@ -279,7 +278,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Database Management',
+                  'Veritabanı Yönetimi',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 if (_isLoadingDbHealth)
@@ -338,7 +337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              'Status: ${(_dbHealth['status'] ?? 'Unknown').toUpperCase()}',
+              'Durum: ${(_dbHealth['status'] ?? 'Bilinmiyor').toUpperCase()}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: statusColor,
@@ -347,11 +346,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        Text('Tables: ${_dbHealth['tablesCount'] ?? 'N/A'}'),
+        Text('Tablo Sayısı: ${_dbHealth['tablesCount'] ?? 'N/A'}'),
         const SizedBox(height: 4),
-        Text('Total Rows: ${_dbHealth['totalRows'] ?? 'N/A'}'),
+        Text('Toplam Satır: ${_dbHealth['totalRows'] ?? 'N/A'}'),
         const SizedBox(height: 4),
-        Text('Last Backup: ${_dbHealth['lastBackup'] ?? 'Never'}'),
+        Text('Son Yedekleme: ${_dbHealth['lastBackup'] ?? 'Hiç'}'),
       ],
     );
   }
@@ -361,7 +360,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         ElevatedButton.icon(
           icon: const Icon(Icons.storage),
-          label: const Text('Database Tools'),
+          label: const Text('Veritabanı Araçları'),
           onPressed: () {
             Navigator.push(
               context,
@@ -375,7 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.table_chart),
-          label: const Text('Browse Tables'),
+          label: const Text('Tabloları Görüntüle'),
           onPressed: () {
             Navigator.push(
               context,

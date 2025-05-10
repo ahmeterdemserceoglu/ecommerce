@@ -55,7 +55,7 @@ class AppDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                name,
+                'HD Ticaret',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -64,7 +64,7 @@ class AppDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                email,
+                'ADMIN',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.8),
                   fontSize: 14,
@@ -76,7 +76,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.dashboard,
-          title: 'Dashboard',
+          title: 'Panel',
           onTap: () {
             Navigator.pop(context);
             Navigator.pushReplacement(
@@ -88,7 +88,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.shopping_bag,
-          title: 'Products',
+          title: 'Ürünler',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -100,7 +100,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.store,
-          title: 'Stores',
+          title: 'Mağazalar',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -112,7 +112,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.receipt_long,
-          title: 'Orders',
+          title: 'Siparişler',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -124,7 +124,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.people,
-          title: 'Users',
+          title: 'Kullanıcılar',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -134,11 +134,11 @@ class AppDrawer extends StatelessWidget {
           },
         ),
         const Divider(),
-        _buildDrawerSubheader(context, 'Database Tools'),
+        _buildDrawerSubheader(context, 'Veritabanı Araçları'),
         _buildDrawerItem(
           context,
           icon: Icons.storage,
-          title: 'Database Management',
+          title: 'Veritabanı Yönetimi',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -150,7 +150,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.table_chart,
-          title: 'Tables Browser',
+          title: 'Tablolar Tarayıcı',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -164,7 +164,7 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.settings,
-          title: 'Settings',
+          title: 'Ayarlar',
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -176,20 +176,20 @@ class AppDrawer extends StatelessWidget {
         _buildDrawerItem(
           context,
           icon: Icons.logout,
-          title: 'Logout',
+          title: 'Çıkış Yap',
           onTap: () {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Logout'),
-                content: const Text('Are you sure you want to logout?'),
+                title: const Text('Çıkış Yap'),
+                content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
                 actions: [
                   TextButton(
-                    child: const Text('Cancel'),
+                    child: const Text('İptal'),
                     onPressed: () => Navigator.pop(context),
                   ),
                   TextButton(
-                    child: const Text('Logout'),
+                    child: const Text('Çıkış Yap'),
                     onPressed: () {
                       Navigator.pop(context);
                       Provider.of<AuthProvider>(context, listen: false)

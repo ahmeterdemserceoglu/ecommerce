@@ -20,7 +20,7 @@ class _RecentProductsState extends State<RecentProducts> {
 
   Future<void> _loadProducts() async {
     await Provider.of<ProductsProvider>(context, listen: false)
-        .fetchProducts(limit: 5);
+        .fetchProducts(explicitLimit: 5);
   }
 
   @override

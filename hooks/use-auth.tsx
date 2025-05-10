@@ -227,18 +227,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [supabase]);
 
   const signOut = useCallback(async () => {
-    // Mevcut signOut fonksiyonunuz
-    await supabase.auth.signOut();
-    setUser(null); setIsAdmin(false); setIsSeller(false); setInitialLoadComplete(false);
-    router.push('/'); // Ana sayfaya yönlendir
-  }, [supabase, router]);
+    setLoading(true); // Optionally set loading state
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error signing out:", error);
+        toast({
+          title: "Çıkış Hatası",
+          description: error.message || "Çıkış yapılırken bir sorun oluştu.",
+          variant: "destructive",
+        });
+        // Still attempt to push, or handle error more gracefully
+      }
+      // The onAuthStateChange listener should handle setUser, setIsAdmin, setIsSeller, and setInitialLoadComplete(true).
+      // We just need to navigate.
+      router.push('/');
+    } catch (error: any) {
+      console.error("Unexpected error during sign out:", error);
+      toast({
+        title: "Beklenmedik Çıkış Hatası",
+        description: error.message || "Çıkış yapılırken beklenmedik bir sorun oluştu.",
+        variant: "destructive",
+      });
+      // Fallback navigation if needed, though router.push might still work if part of UI is broken
+      // window.location.pathname = '/'; // More forceful redirect as a last resort
+    } finally {
+      // setLoading(false); // The listener will eventually set loading to false via originalLoadUserFromSession or directly
+      // It's important that initialLoadComplete is true after sign out, which the listener ensures.
+    }
+  }, [supabase, router, toast]);
 
-  const refreshProfile = useCallback(async () => {
-    // Bu fonksiyon originalLoadUserFromSession'ı çağırmalı
-    await originalLoadUserFromSession();
-  }, [originalLoadUserFromSession]);
-
-  useEffect(() => {
+  const refreshProfile = useEffect(() => {
     originalLoadUserFromSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);

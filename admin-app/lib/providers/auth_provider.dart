@@ -33,7 +33,7 @@ class AuthProvider with ChangeNotifier {
       return isValid;
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = 'Oturum doğrulanamadı: $e';
       notifyListeners();
       return false;
     }
@@ -54,7 +54,7 @@ class AuthProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = 'Giriş başarısız: $e';
       notifyListeners();
       return false;
     }
@@ -71,7 +71,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = 'Çıkış yapılamadı: $e';
       notifyListeners();
     }
   }
