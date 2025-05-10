@@ -7,18 +7,24 @@ class AuthProvider with ChangeNotifier {
   User? _currentUser;
   bool _isLoading = false;
   String? _error;
+  bool _rememberMe = false;
 
   User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
+  bool get rememberMe => _rememberMe;
+  set rememberMe(bool value) {
+    _rememberMe = value;
+    notifyListeners();
+  }
 
-  Future<bool> isLoggedIn() async {
+  Future<bool> isLoggedIn({bool rememberMe = false}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final isValid = await _authService.isTokenValid();
+      final isValid = await _authService.isTokenValid(rememberMe: rememberMe);
       if (isValid) {
         _currentUser = await _authService.getCurrentUser();
       }
@@ -33,14 +39,17 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String password,
+      {bool rememberMe = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _currentUser = await _authService.login(email, password);
+      _currentUser =
+          await _authService.login(email, password, rememberMe: rememberMe);
       _isLoading = false;
+      _rememberMe = rememberMe;
       notifyListeners();
       return true;
     } catch (e) {

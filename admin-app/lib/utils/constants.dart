@@ -8,15 +8,15 @@ const String supabaseUrl = 'https://swytqjegdclddjdezgjj.supabase.co';
 const String supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3eXRxamVnZGNsZGRqZGV6Z2pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0MjI0MTAsImV4cCI6MjA2MTk5ODQxMH0.BbHHS8UZxKnUt9vMQLI9jFRUxKrUJD6LLgeb_IDK4TA';
 
-// API endpoints
-const String productsEndpoint = '/api/admin/products';
-const String storesEndpoint = '/api/admin/stores';
-const String ordersEndpoint = '/api/orders';
-const String usersEndpoint = '/api/admin/users';
-const String categoriesEndpoint = '/api/categories';
-const String brandsEndpoint = '/api/brands';
-const String payoutsEndpoint = '/api/admin/payouts';
-const String databaseEndpoint = '/api/admin/database';
+// API endpoints (sadece path, başında /api olmadan)
+const String productsEndpoint = 'admin/products';
+const String storesEndpoint = 'admin/stores';
+const String ordersEndpoint = 'orders';
+const String usersEndpoint = 'admin/users';
+const String categoriesEndpoint = 'categories';
+const String brandsEndpoint = 'brands';
+const String payoutsEndpoint = 'admin/payouts';
+const String databaseEndpoint = 'admin/database';
 
 // Dashboard constants
 const int dashboardCardCount = 4;

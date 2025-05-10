@@ -18,7 +18,8 @@ class AuthService {
     };
   }
 
-  Future<models.User?> login(String email, String password) async {
+  Future<models.User?> login(String email, String password,
+      {bool rememberMe = false}) async {
     try {
       // Try to login with Supabase first
       await _supabaseService.initialize();
@@ -26,6 +27,7 @@ class AuthService {
           await _supabaseService.signInWithEmailAndPassword(
         email,
         password,
+        rememberMe: rememberMe,
       );
 
       if (supabaseResponse != null && supabaseResponse.session != null) {
@@ -82,7 +84,7 @@ class AuthService {
     }
   }
 
-  Future<bool> isTokenValid() async {
+  Future<bool> isTokenValid({bool rememberMe = false}) async {
     try {
       final token = await _storage.read(key: 'token');
       if (token == null) return false;

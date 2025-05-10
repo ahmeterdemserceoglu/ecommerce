@@ -78,7 +78,8 @@ class SupabaseService {
 
   // Sign in with email and password
   Future<supabase.AuthResponse?> signInWithEmailAndPassword(
-      String email, String password) async {
+      String email, String password,
+      {bool rememberMe = false}) async {
     try {
       final response = await _client.auth.signInWithPassword(
         email: email,
@@ -87,13 +88,17 @@ class SupabaseService {
 
       // Store the session
       if (response.session != null) {
-        await _storage.write(
-          key: 'supabase_session',
-          value: jsonEncode({
-            'access_token': response.session!.accessToken,
-            'refresh_token': response.session!.refreshToken,
-          }),
-        );
+        if (rememberMe) {
+          await _storage.write(
+            key: 'supabase_session',
+            value: jsonEncode({
+              'access_token': response.session!.accessToken,
+              'refresh_token': response.session!.refreshToken,
+            }),
+          );
+        } else {
+          await _storage.delete(key: 'supabase_session');
+        }
       }
 
       return response;

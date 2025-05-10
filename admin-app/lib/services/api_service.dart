@@ -6,8 +6,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  final String _baseUrl =
-      'https://api.example.com/v1'; // Replace with your actual API URL
+  final String _baseUrl = 'https://www.hdticaret.com/api';
   final Map<String, String> _headers = {
     'Content-Type': 'application/json',
   };

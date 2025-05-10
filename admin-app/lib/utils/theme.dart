@@ -1,77 +1,66 @@
 import 'package:flutter/material.dart';
 
-const Color primaryColor = Color(0xFF3498DB);
-const Color secondaryColor = Color(0xFF2ECC71);
-const Color backgroundColor = Color(0xFFF5F5F5);
-const Color surfaceColor = Colors.white;
-const Color errorColor = Color(0xFFE74C3C);
-const Color textColor = Color(0xFF2C3E50);
+class AdminTheme {
+  static const Color primary = Color(0xFFFF8000); // Turuncu
+  static const Color black = Color(0xFF000000);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color lightGrey = Color(0xFFF8F9FB);
+  static const Color borderGrey = Color(0xFFE5E7EB);
+  static const Color errorRed = Color(0xFFEF4444);
 
-final ThemeData adminTheme = ThemeData(
-  primaryColor: primaryColor,
-  colorScheme: const ColorScheme(
-    primary: primaryColor,
-    secondary: secondaryColor,
-    surface: surfaceColor,
-    error: errorColor,
-    onPrimary: Colors.white,
-    onSecondary: Colors.white,
-    onSurface: textColor,
-    onError: Colors.white,
-    brightness: Brightness.light,
-  ),
-  scaffoldBackgroundColor: backgroundColor,
-  appBarTheme: const AppBarTheme(
-    backgroundColor: primaryColor,
-    elevation: 0,
-    iconTheme: IconThemeData(color: Colors.white),
-    titleTextStyle: TextStyle(
-      color: Colors.white,
-      fontSize: 20,
-      fontWeight: FontWeight.w500,
-    ),
-  ),
-  cardTheme: CardTheme(
-    elevation: 2,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  ),
-  elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: primaryColor,
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-  ),
-  inputDecorationTheme: InputDecorationTheme(
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: primaryColor),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: errorColor),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-  ),
-  textTheme: const TextTheme(
-    displayLarge: TextStyle(color: textColor),
-    displayMedium: TextStyle(color: textColor),
-    displaySmall: TextStyle(color: textColor),
-    headlineMedium: TextStyle(color: textColor),
-    headlineSmall: TextStyle(color: textColor),
-    titleLarge: TextStyle(color: textColor),
-    bodyLarge: TextStyle(color: textColor),
-    bodyMedium: TextStyle(color: textColor),
-  ),
-);
+  static ThemeData get theme {
+    return ThemeData(
+      fontFamily: 'Inter', // Google Fonts üzerinden ekleyebilirsin
+      scaffoldBackgroundColor: lightGrey,
+      primaryColor: primary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: black),
+        titleTextStyle: TextStyle(
+          color: black,
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
+      textTheme: TextTheme(
+        titleLarge: TextStyle(color: black, fontWeight: FontWeight.bold),
+        bodyMedium: TextStyle(color: black),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: borderGrey),
+        ),
+      ),
+      cardTheme: CardTheme(
+        color: white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: borderGrey),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: black,
+          side: BorderSide(color: borderGrey),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+}

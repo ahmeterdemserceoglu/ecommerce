@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
         builder: (context, authProvider, _) {
           return MaterialApp(
             title: 'Admin Dashboard',
-            theme: adminTheme,
+            theme: AdminTheme.theme,
             debugShowCheckedModeBanner: false,
             home: const SplashScreen(),
           );

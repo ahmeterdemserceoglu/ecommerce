@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -30,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final success = await authProvider.login(
         _emailController.text.trim(),
         _passwordController.text,
+        rememberMe: _rememberMe,
       );
 
       if (success && mounted) {
@@ -127,6 +129,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 obscureText: _obscurePassword,
                                 validator: validatePassword,
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _rememberMe,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _rememberMe = val ?? false;
+                                      });
+                                      authProvider.rememberMe = val ?? false;
+                                    },
+                                  ),
+                                  const Text('Beni Hatırla'),
+                                ],
                               ),
 
                               const SizedBox(height: 24),

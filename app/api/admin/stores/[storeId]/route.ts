@@ -3,6 +3,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import * as z from "zod";
 import { slugify } from "@/lib/utils";
+import { createClient } from '@supabase/supabase-js'
 
 // Zod schema for admin updating a store
 const adminStoreUpdateSchema = z.object({
@@ -25,58 +26,17 @@ const adminStoreUpdateSchema = z.object({
     verification_notes: z.string().optional().nullable(), // Admin notes for verification
 });
 
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
 // GET /api/admin/stores/[storeId] - Get a specific store by ID (Admin only)
-export async function GET(request: NextRequest, { params }: { params: { storeId: string } }) {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { storeId } = params;
-
-    // Admin authorization check
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        console.error("[API /api/admin/stores/[id] GET] Error getting session:", sessionError.message);
-        return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 });
-    }
-    if (!session) {
-        console.log("[API /api/admin/stores/[id] GET] No session found.");
-        return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 });
-    }
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-    if (profileError) {
-        console.error(`[API /api/admin/stores/[id] GET] Error fetching profile for user ${session.user.id}:`, profileError.message);
-        return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 });
-    }
-    if (!profile || profile.role !== 'admin') {
-        console.warn(`[API /api/admin/stores/[id] GET] Authorization failed. User role: ${profile?.role} (Expected 'admin')`);
-        return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 });
-    }
-    console.log(`[API /api/admin/stores/[id] GET] Admin user ${session.user.id} authorized.`);
-    // End admin authorization check
-
-    try {
-        const { data: store, error } = await supabase
-            .from("stores")
-            .select("*, owner:profiles!stores_owner_id_fkey(id, full_name, email), products(count)") // Corrected FK hint
-            .eq("id", storeId)
-            .single();
-
-        if (error) {
-            if (error.code === "PGRST116") { // Not found
-                return NextResponse.json({ error: "Store not found." }, { status: 404 });
-            }
-            console.error(`Error fetching store ${storeId} (admin):`, error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json(store);
-    } catch (e: any) {
-        console.error(`GET /api/admin/stores/${storeId} error:`, e);
-        return NextResponse.json({ error: e.message || "Failed to fetch store" }, { status: 500 });
-    }
+export async function GET(req: NextRequest, { params }: { params: { storeId: string } }) {
+    const { storeId } = params
+    const { data, error } = await supabase.from('stores').select('*').eq('id', storeId).single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+    return NextResponse.json(data)
 }
 
 // PUT /api/admin/stores/[storeId] - Update a specific store by ID (Admin only)
@@ -218,72 +178,9 @@ export async function PUT(request: NextRequest, { params }: { params: { storeId:
 }
 
 // DELETE /api/admin/stores/[storeId] - Delete a specific store by ID (Admin only)
-export async function DELETE(request: NextRequest, { params }: { params: { storeId: string } }) {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { storeId } = params;
-
-    // Admin authorization check
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-        console.error("[API /api/admin/stores/[id] DELETE] Error getting session:", sessionError.message);
-        return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 });
-    }
-    if (!session) {
-        console.log("[API /api/admin/stores/[id] DELETE] No session found.");
-        return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 });
-    }
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-    if (profileError) {
-        console.error(`[API /api/admin/stores/[id] DELETE] Error fetching profile for user ${session.user.id}:`, profileError.message);
-        return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 });
-    }
-    if (!profile || profile.role !== 'admin') {
-        console.warn(`[API /api/admin/stores/[id] DELETE] Authorization failed. User role: ${profile?.role} (Expected 'admin')`);
-        return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 });
-    }
-    console.log(`[API /api/admin/stores/[id] DELETE] Admin user ${session.user.id} authorized.`);
-    // End admin authorization check
-
-    try {
-        // Perform a soft delete by updating status fields
-        const updates = {
-            is_active: false,
-            is_verified: false,
-            approved: false,
-            updated_at: new Date().toISOString(),
-        };
-
-        const { data: softDeletedStore, error: updateError } = await supabase
-            .from("stores")
-            .update(updates)
-            .eq("id", storeId)
-            .select("id") // Select only necessary fields
-            .single();
-
-        if (updateError) {
-            console.error(`Error soft deleting store ${storeId} (admin):`, updateError);
-            // PGRST116 means not found, which is okay if we are trying to delete something already gone.
-            if (updateError.code === 'PGRST116') {
-                return NextResponse.json({ message: `Store ${storeId} not found or already processed.` }, { status: 404 });
-            }
-            return NextResponse.json({ error: updateError.message || "Failed to soft delete store." }, { status: 500 });
-        }
-
-        if (!softDeletedStore) {
-            // This case should ideally be caught by PGRST116, but as a fallback:
-            return NextResponse.json({ error: "Store not found to soft delete." }, { status: 404 });
-        }
-
-        console.log(`Store ${storeId} soft deleted successfully.`);
-        return NextResponse.json({ message: `Store ${storeId} has been deactivated and archived.` });
-
-    } catch (e: any) {
-        console.error(`DELETE /api/admin/stores/${storeId} (soft delete) error:`, e);
-        return NextResponse.json({ error: e.message || "Failed to soft delete store" }, { status: 500 });
-    }
+export async function DELETE(req: NextRequest, { params }: { params: { storeId: string } }) {
+    const { storeId } = params
+    const { error } = await supabase.from('stores').delete().eq('id', storeId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ message: 'Store deleted' })
 } 

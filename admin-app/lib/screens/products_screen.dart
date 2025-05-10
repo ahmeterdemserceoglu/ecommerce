@@ -62,7 +62,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage.isNotEmpty
-              ? Center(child: Text(_errorMessage))
+              ? ErrorDisplay(
+                  userMessage: _getUserFriendlyError(_errorMessage),
+                  technicalDetails: _errorMessage,
+                  onRetry: _fetchProducts,
+                )
               : _products.isEmpty
                   ? const Center(child: Text('No products found.'))
                   : Responsive(
@@ -161,6 +165,58 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  String _getUserFriendlyError(String errorMsg) {
+    if (errorMsg.contains('Failed host lookup')) {
+      return 'API adresi hatalı veya sunucuya ulaşılamıyor.';
+    } else if (errorMsg.contains('404')) {
+      return 'İstenilen veri bulunamadı (404).';
+    } else if (errorMsg.contains('401') || errorMsg.contains('403')) {
+      return 'Yetkisiz işlem. Lütfen tekrar giriş yapın.';
+    } else if (errorMsg.contains('500')) {
+      return 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.';
+    }
+    return 'Bir hata oluştu.';
+  }
+}
+
+class ErrorDisplay extends StatelessWidget {
+  final String userMessage;
+  final String? technicalDetails;
+  final VoidCallback? onRetry;
+
+  const ErrorDisplay({
+    required this.userMessage,
+    this.technicalDetails,
+    this.onRetry,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text(userMessage, style: const TextStyle(fontSize: 16)),
+          if (technicalDetails != null) ...[
+            const SizedBox(height: 8),
+            Text(technicalDetails!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
+        ],
       ),
     );
   }
