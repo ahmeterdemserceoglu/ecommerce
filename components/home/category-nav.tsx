@@ -1,33 +1,35 @@
-import Link from "next/link"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
 
-export async function CategoryNav() {
-  const supabase = createServerComponentClient({ cookies })
+export function CategoryNav() {
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  type Category = { id: string; name: string; slug: string }
-  let categories: Category[] = []
-
-  try {
-    const { data, error } = await supabase
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase
       .from("categories")
       .select("id, name, slug")
       .is("parent_id", null)
       .order("sort_order", { ascending: true })
       .limit(12)
-
-    if (error) throw error
-    categories = data || []
-  } catch (err) {
-    console.error("Error fetching categories for nav:", err)
-    // Return empty array on error to avoid breaking the UI
-    categories = []
-  }
+      .then(({ data }) => {
+        setCategories(data || []);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <nav className="w-full border-b bg-white">
       <div className="flex items-center gap-6 px-6 py-2 overflow-x-auto scrollbar-none">
-        {categories.length > 0 ? (
+        {loading ? (
+          <span>Kategoriler yükleniyor...</span>
+        ) : categories.length > 0 ? (
           categories.map((category) => (
             <Link
               key={category.id}
@@ -42,5 +44,5 @@ export async function CategoryNav() {
         )}
       </div>
     </nav>
-  )
+  );
 }

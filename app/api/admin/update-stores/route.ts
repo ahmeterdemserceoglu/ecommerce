@@ -1,33 +1,39 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import fs from "fs"
 import path from "path"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const cookieStore = cookies()
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
   try {
-    // Check if user is authenticated and is admin
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Standardized Admin authorization check
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      console.error("[API /api/admin/update-stores POST] Error getting session:", sessionError.message)
+      return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
     }
-
-    // Get user role from profiles table
-    const { data: profile, error: profileError } = await supabase
+    if (!session) {
+      console.log("[API /api/admin/update-stores POST] No session found.")
+      return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+    }
+    const { data: userProfile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", user.id)
+      .eq("id", session.user.id)
       .single()
-
-    if (profileError || !profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (profileError) {
+      console.error(`[API /api/admin/update-stores POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+      return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
     }
+    if (!userProfile || userProfile.role !== "admin") {
+      console.warn(`[API /api/admin/update-stores POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+    }
+    console.log(`[API /api/admin/update-stores POST] Admin user ${session.user.id} authorized.`)
+    // End standardized admin authorization check
 
     // Read the SQL file
     const sqlFilePath = path.join(process.cwd(), "lib", "database", "sql-update-stores.sql")

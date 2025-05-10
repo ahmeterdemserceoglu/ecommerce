@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,26 +11,24 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CreditCard, FileText, Trash2, Plus, BanknoteIcon as BankIcon } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, CreditCard, FileText, Trash2, Plus, BanknoteIcon as BankIcon, PlusCircle, Edit, CheckCircle, XCircle, TrendingUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import type { Database } from "@/types/supabase"
+
+export const dynamic = "force-dynamic"
+
+type SellerBankAccount = Database["public"]["Tables"]["seller_bank_accounts"]["Row"]
 
 export default function SellerPaymentSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("invoice")
+
+  // Fatura Ayarları State'leri
   const [invoiceSettings, setInvoiceSettings] = useState<any>(null)
-  const [bankAccounts, setBankAccounts] = useState<any[]>([])
-  const [paymentIntegrations, setPaymentIntegrations] = useState<any[]>([])
-
-  // Yeni banka hesabı için state
-  const [newBankAccount, setNewBankAccount] = useState({
-    bankName: "",
-    accountHolderName: "",
-    iban: "",
-    isDefault: false,
-  })
-
-  // Fatura ayarları için state
   const [updatedInvoiceSettings, setUpdatedInvoiceSettings] = useState<any>({
     isEInvoiceUser: false,
     taxOffice: "",
@@ -46,8 +45,25 @@ export default function SellerPaymentSettingsPage() {
     invoicePrefix: "INV",
     invoiceNotes: "",
   })
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
 
-  // Ödeme entegrasyonu için state
+  // Banka Hesapları State'leri
+  const [bankAccounts, setBankAccounts] = useState<SellerBankAccount[]>([])
+  const [newBankAccount, setNewBankAccount] = useState({
+    bankName: "",
+    accountHolderName: "",
+    iban: "",
+    isDefault: false,
+    currency: "TRY",
+    account_number: "",
+    branch_code: "",
+    swift_bic_code: "",
+    instructions: ""
+  })
+  const [bankAccountLoading, setBankAccountLoading] = useState(false)
+
+  // Ödeme Entegrasyonları State'leri
+  const [paymentIntegrations, setPaymentIntegrations] = useState<any[]>([])
   const [newIntegration, setNewIntegration] = useState({
     provider: "iyzico",
     apiKey: "",
@@ -56,8 +72,10 @@ export default function SellerPaymentSettingsPage() {
     isActive: true,
     settings: {},
   })
+  const [integrationLoading, setIntegrationLoading] = useState(false)
 
-  // Yeni payout için state
+  // Payout State'leri
+  const [currentBalance, setCurrentBalance] = useState<number>(0)
   const [newPayout, setNewPayout] = useState({ amount: "", bankAccountId: "", description: "Satıcı ödemesi" })
   const [loadingPayout, setLoadingPayout] = useState(false)
 
@@ -66,38 +84,42 @@ export default function SellerPaymentSettingsPage() {
   }, [])
 
   const fetchPaymentSettings = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
       const response = await fetch("/api/seller/payment-settings")
       const data = await response.json()
 
       if (data.success) {
+        // Fatura Ayarları
         setInvoiceSettings(data.invoiceSettings)
-        setBankAccounts(data.bankAccounts)
-        setPaymentIntegrations(data.paymentIntegrations)
-
         if (data.invoiceSettings) {
           setUpdatedInvoiceSettings({
-            isEInvoiceUser: data.invoiceSettings.is_e_invoice_user,
-            taxOffice: data.invoiceSettings.tax_office,
-            taxNumber: data.invoiceSettings.tax_number,
-            companyName: data.invoiceSettings.company_name,
-            address: data.invoiceSettings.address,
-            phone: data.invoiceSettings.phone,
-            email: data.invoiceSettings.email,
-            mersis: data.invoiceSettings.mersis,
-            gibUsername: data.invoiceSettings.gib_username,
-            gibPassword: data.invoiceSettings.gib_password,
-            gibApiKey: data.invoiceSettings.gib_api_key,
-            autoInvoiceGeneration: data.invoiceSettings.auto_invoice_generation,
-            invoicePrefix: data.invoiceSettings.invoice_prefix,
-            invoiceNotes: data.invoiceSettings.invoice_notes,
+            isEInvoiceUser: data.invoiceSettings.is_e_invoice_user ?? false,
+            taxOffice: data.invoiceSettings.tax_office ?? "",
+            taxNumber: data.invoiceSettings.tax_number ?? "",
+            companyName: data.invoiceSettings.company_name ?? "",
+            address: data.invoiceSettings.address ?? "",
+            phone: data.invoiceSettings.phone ?? "",
+            email: data.invoiceSettings.email ?? "",
+            mersis: data.invoiceSettings.mersis ?? "",
+            gibUsername: data.invoiceSettings.gib_username ?? "",
+            gibPassword: "",
+            gibApiKey: data.invoiceSettings.gib_api_key ?? "",
+            autoInvoiceGeneration: data.invoiceSettings.auto_invoice_generation ?? true,
+            invoicePrefix: data.invoiceSettings.invoice_prefix ?? "INV",
+            invoiceNotes: data.invoiceSettings.invoice_notes ?? "",
           })
         }
+        // Banka Hesapları
+        setBankAccounts(data.bankAccounts || [])
+        // Ödeme Entegrasyonları
+        setPaymentIntegrations(data.paymentIntegrations || [])
+        // Satıcı bakiyesi için state
+        setCurrentBalance(data.currentBalance || 0)
       } else {
         toast({
           title: "Hata",
-          description: data.message,
+          description: data.message || "Ödeme ayarları alınamadı.",
           variant: "destructive",
         })
       }
@@ -105,7 +127,7 @@ export default function SellerPaymentSettingsPage() {
       console.error("Ödeme ayarları alınırken hata:", error)
       toast({
         title: "Hata",
-        description: "Ödeme ayarları alınırken bir hata oluştu",
+        description: "Ödeme ayarları alınırken bir istemci tarafı hatası oluştu.",
         variant: "destructive",
       })
     } finally {
@@ -114,480 +136,182 @@ export default function SellerPaymentSettingsPage() {
   }
 
   const saveInvoiceSettings = async () => {
+    setInvoiceLoading(true)
     try {
-      setLoading(true)
       const response = await fetch("/api/seller/payment-settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "invoice_settings",
-          data: updatedInvoiceSettings,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invoice_settings", data: updatedInvoiceSettings }),
       })
-
       const data = await response.json()
-
       if (data.success) {
-        toast({
-          title: "Başarılı",
-          description: "Fatura ayarları güncellendi",
-        })
+        toast({ title: "Başarılı", description: "Fatura ayarları güncellendi" })
         fetchPaymentSettings()
       } else {
-        toast({
-          title: "Hata",
-          description: data.message,
-          variant: "destructive",
-        })
+        toast({ title: "Hata", description: data.message, variant: "destructive" })
       }
     } catch (error) {
       console.error("Fatura ayarları kaydedilirken hata:", error)
-      toast({
-        title: "Hata",
-        description: "Fatura ayarları kaydedilirken bir hata oluştu",
-        variant: "destructive",
-      })
+      toast({ title: "Hata", description: "Fatura ayarları kaydedilirken bir hata oluştu", variant: "destructive" })
     } finally {
-      setLoading(false)
+      setInvoiceLoading(false)
     }
   }
 
-  const validateIban = (iban: string) => iban.startsWith("TR") && iban.length === 26
+  const validateIban = (iban: string) => typeof iban === 'string' && iban.startsWith("TR") && iban.length === 26
 
-  const addBankAccount = async () => {
+  const handleAddBankAccount = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     if (!newBankAccount.bankName || !newBankAccount.accountHolderName || !newBankAccount.iban) {
-      toast({ title: "Hata", description: "Tüm alanları doldurun", variant: "destructive" })
+      toast({ title: "Eksik Bilgi", description: "Banka adı, hesap sahibi ve IBAN alanları zorunludur.", variant: "destructive" })
       return
     }
     if (!validateIban(newBankAccount.iban)) {
-      toast({ title: "Hata", description: "Geçerli bir IBAN girin (TR ile başlamalı ve 26 karakter olmalı)", variant: "destructive" })
+      toast({ title: "Geçersiz IBAN", description: "Lütfen geçerli bir TR IBAN girin (26 karakter).", variant: "destructive" })
       return
     }
+    setBankAccountLoading(true)
     try {
-      setLoading(true)
       const response = await fetch("/api/seller/payment-settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "bank_account",
-          data: newBankAccount,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "bank_account", data: newBankAccount }),
       })
-
       const data = await response.json()
-
       if (data.success) {
-        toast({
-          title: "Başarılı",
-          description: "Banka hesabı eklendi",
-        })
-        setNewBankAccount({
-          bankName: "",
-          accountHolderName: "",
-          iban: "",
-          isDefault: false,
-        })
+        toast({ title: "Başarılı", description: "Banka hesabı eklendi" })
+        setNewBankAccount({ bankName: "", accountHolderName: "", iban: "", isDefault: false, currency: "TRY", account_number: "", branch_code: "", swift_bic_code: "", instructions: "" })
         fetchPaymentSettings()
       } else {
-        toast({
-          title: "Hata",
-          description: data.message,
-          variant: "destructive",
-        })
+        toast({ title: "Hata", description: data.message || "Banka hesabı eklenemedi.", variant: "destructive" })
       }
     } catch (error) {
       console.error("Banka hesabı eklenirken hata:", error)
-      toast({
-        title: "Hata",
-        description: "Banka hesabı eklenirken bir hata oluştu",
-        variant: "destructive",
-      })
+      toast({ title: "Hata", description: "Banka hesabı eklenirken bir hata oluştu.", variant: "destructive" })
     } finally {
-      setLoading(false)
+      setBankAccountLoading(false)
+    }
+  }
+
+  const handleDeleteBankAccount = async (id: string) => {
+    if (!confirm("Bu banka hesabını silmek istediğinizden emin misiniz?")) return
+    setBankAccountLoading(true)
+    try {
+      const response = await fetch(`/api/seller/bank-accounts/${id}`, { method: "DELETE" })
+      const data = await response.json()
+      if (data.success) {
+        toast({ title: "Başarılı", description: "Banka hesabı silindi" })
+        fetchPaymentSettings()
+      } else {
+        toast({ title: "Hata", description: data.message || "Banka hesabı silinemedi.", variant: "destructive" })
+      }
+    } catch (error) {
+      console.error("Banka hesabı silinirken hata:", error)
+      toast({ title: "Hata", description: "Banka hesabı silinirken bir hata oluştu.", variant: "destructive" })
+    } finally {
+      setBankAccountLoading(false)
     }
   }
 
   const addPaymentIntegration = async () => {
+    setIntegrationLoading(true)
     try {
-      setLoading(true)
       const response = await fetch("/api/seller/payment-settings", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "payment_integration",
-          data: newIntegration,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "payment_integration", data: newIntegration }),
       })
-
       const data = await response.json()
-
       if (data.success) {
-        toast({
-          title: "Başarılı",
-          description: "Ödeme entegrasyonu eklendi",
-        })
-        setNewIntegration({
-          provider: "iyzico",
-          apiKey: "",
-          apiSecret: "",
-          merchantId: "",
-          isActive: true,
-          settings: {},
-        })
+        toast({ title: "Başarılı", description: "Ödeme entegrasyonu eklendi" })
+        setNewIntegration({ provider: "iyzico", apiKey: "", apiSecret: "", merchantId: "", isActive: true, settings: {} })
         fetchPaymentSettings()
       } else {
-        toast({
-          title: "Hata",
-          description: data.message,
-          variant: "destructive",
-        })
+        toast({ title: "Hata", description: data.message || "Entegrasyon eklenemedi.", variant: "destructive" })
       }
     } catch (error) {
       console.error("Ödeme entegrasyonu eklenirken hata:", error)
-      toast({
-        title: "Hata",
-        description: "Ödeme entegrasyonu eklenirken bir hata oluştu",
-        variant: "destructive",
-      })
+      toast({ title: "Hata", description: "Ödeme entegrasyonu eklenirken bir hata oluştu.", variant: "destructive" })
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const deleteBankAccount = async (id: string) => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/seller/bank-accounts/${id}`, {
-        method: "DELETE",
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Başarılı",
-          description: "Banka hesabı silindi",
-        })
-        fetchPaymentSettings()
-      } else {
-        toast({
-          title: "Hata",
-          description: data.message,
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Banka hesabı silinirken hata:", error)
-      toast({
-        title: "Hata",
-        description: "Banka hesabı silinirken bir hata oluştu",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      setIntegrationLoading(false)
     }
   }
 
   const requestPayout = async () => {
-    if (!newPayout.amount || !newPayout.bankAccountId) {
-      toast({
-        title: "Hata",
-        description: "Tutar ve banka hesabı seçmelisiniz",
-        variant: "destructive",
-      })
+    const amountToRequest = parseFloat(newPayout.amount)
+    if (isNaN(amountToRequest) || amountToRequest <= 0) {
+      toast({ title: "Geçersiz Tutar", description: "Lütfen geçerli bir tutar girin.", variant: "destructive" })
       return
     }
+    if (amountToRequest > currentBalance) {
+      toast({ title: "Yetersiz Bakiye", description: `Çekmek istediğiniz tutar (${amountToRequest.toFixed(2)} TRY) mevcut bakiyenizden (${currentBalance.toFixed(2)} TRY) fazla olamaz.`, variant: "destructive" })
+      return
+    }
+    if (!newPayout.bankAccountId) {
+      toast({ title: "Banka Hesabı Seçilmedi", description: "Lütfen ödeme yapılacak bir banka hesabı seçin.", variant: "destructive" })
+      return
+    }
+
+    setLoadingPayout(true)
     try {
-      setLoadingPayout(true)
       const response = await fetch("/api/seller/payouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newPayout),
       })
       const data = await response.json()
+
       if (data.success) {
-        toast({ title: "Başarılı", description: "Ödeme talebi oluşturuldu" })
+        toast({ title: "Başarılı", description: "Ödeme talebi oluşturuldu. Talebiniz inceleniyor." })
         setNewPayout({ amount: "", bankAccountId: "", description: "Satıcı ödemesi" })
+        fetchPaymentSettings()
       } else {
-        toast({ title: "Hata", description: data.message, variant: "destructive" })
+        toast({ title: "Hata", description: data.message || "Ödeme talebi oluşturulamadı.", variant: "destructive" })
       }
-    } catch (error) {
-      toast({ title: "Hata", description: "Ödeme talebi oluşturulurken bir hata oluştu", variant: "destructive" })
+    } catch (error: any) {
+      toast({ title: "Hata", description: error.message || "Ödeme talebi oluşturulurken bir hata oluştu.", variant: "destructive" })
     } finally {
       setLoadingPayout(false)
     }
   }
 
+  if (loading && !bankAccounts.length && currentBalance === 0) {
+    return <div className="container py-10 text-center">Ayarlar yükleniyor...</div>
+  }
+
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Ödeme ve Fatura Ayarları</h1>
-      </div>
-
-      <Tabs defaultValue="invoice">
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="invoice">
-            <FileText className="w-4 h-4 mr-2" />
-            Fatura Ayarları
-          </TabsTrigger>
-          <TabsTrigger value="bank">
-            <BankIcon className="w-4 h-4 mr-2" />
-            Banka Hesapları
-          </TabsTrigger>
-          <TabsTrigger value="payment">
-            <CreditCard className="w-4 h-4 mr-2" />
-            Ödeme Entegrasyonları
-          </TabsTrigger>
+          <TabsTrigger value="invoice">Fatura Ayarları</TabsTrigger>
+          <TabsTrigger value="bank">Banka Hesapları</TabsTrigger>
+          <TabsTrigger value="payment">Ödeme Entegrasyonları</TabsTrigger>
+          <TabsTrigger value="payout">Ödeme Talebi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoice" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Fatura Bilgileri</CardTitle>
-              <CardDescription>
-                Fatura kesimi için gerekli bilgilerinizi ve GİB entegrasyonunuzu yapılandırın.
-              </CardDescription>
+              <CardDescription>Fatura kesimi için gerekli bilgilerinizi yapılandırın.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
-                    <Switch
-                      id="e-invoice-user"
-                      checked={updatedInvoiceSettings.isEInvoiceUser}
-                      onCheckedChange={(checked) =>
-                        setUpdatedInvoiceSettings({
-                          ...updatedInvoiceSettings,
-                          isEInvoiceUser: checked,
-                        })
-                      }
-                    />
+                    <Switch id="e-invoice-user" checked={updatedInvoiceSettings.isEInvoiceUser} onCheckedChange={(checked) => setUpdatedInvoiceSettings({ ...updatedInvoiceSettings, isEInvoiceUser: checked })} />
                     <Label htmlFor="e-invoice-user">e-Fatura Mükellefiyim</Label>
                   </div>
-                  <p className="text-sm text-muted-foreground">e-Fatura mükellefi iseniz bu seçeneği işaretleyin.</p>
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="auto-invoice"
-                      checked={updatedInvoiceSettings.autoInvoiceGeneration}
-                      onCheckedChange={(checked) =>
-                        setUpdatedInvoiceSettings({
-                          ...updatedInvoiceSettings,
-                          autoInvoiceGeneration: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="auto-invoice">Otomatik Fatura Oluştur</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Siparişler tamamlandığında otomatik fatura oluşturulur.
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="company-name">Şirket Adı</Label>
-                  <Input
-                    id="company-name"
-                    value={updatedInvoiceSettings.companyName}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        companyName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tax-number">Vergi Numarası</Label>
-                  <Input
-                    id="tax-number"
-                    value={updatedInvoiceSettings.taxNumber}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        taxNumber: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tax-office">Vergi Dairesi</Label>
-                  <Input
-                    id="tax-office"
-                    value={updatedInvoiceSettings.taxOffice}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        taxOffice: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mersis">MERSİS No</Label>
-                  <Input
-                    id="mersis"
-                    value={updatedInvoiceSettings.mersis}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        mersis: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Adres</Label>
-                  <Input
-                    id="address"
-                    value={updatedInvoiceSettings.address}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        address: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefon</Label>
-                  <Input
-                    id="phone"
-                    value={updatedInvoiceSettings.phone}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        phone: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-posta</Label>
-                  <Input
-                    id="email"
-                    value={updatedInvoiceSettings.email}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        email: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">GİB Entegrasyonu</h3>
-                <p className="text-sm text-muted-foreground">
-                  Gelir İdaresi Başkanlığı e-Arşiv/e-Fatura sistemi entegrasyonu için gerekli bilgiler.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gib-username">GİB Kullanıcı Adı</Label>
-                  <Input
-                    id="gib-username"
-                    value={updatedInvoiceSettings.gibUsername}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        gibUsername: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gib-password">GİB Şifre</Label>
-                  <Input
-                    id="gib-password"
-                    type="password"
-                    value={updatedInvoiceSettings.gibPassword}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        gibPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="gib-api-key">GİB API Anahtarı</Label>
-                  <Input
-                    id="gib-api-key"
-                    value={updatedInvoiceSettings.gibApiKey}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        gibApiKey: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice-prefix">Fatura Öneki</Label>
-                  <Input
-                    id="invoice-prefix"
-                    value={updatedInvoiceSettings.invoicePrefix}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        invoicePrefix: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Fatura numaralarının başına eklenecek ön ek (örn: INV, FTR)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoice-notes">Fatura Notları</Label>
-                  <Input
-                    id="invoice-notes"
-                    value={updatedInvoiceSettings.invoiceNotes}
-                    onChange={(e) =>
-                      setUpdatedInvoiceSettings({
-                        ...updatedInvoiceSettings,
-                        invoiceNotes: e.target.value,
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">Tüm faturalara eklenecek standart notlar</p>
+                  <Input id="company-name" value={updatedInvoiceSettings.companyName} onChange={(e) => setUpdatedInvoiceSettings({ ...updatedInvoiceSettings, companyName: e.target.value })} />
                 </div>
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={saveInvoiceSettings} disabled={loading}>
-                {loading ? "Kaydediliyor..." : "Kaydet"}
+              <Button onClick={saveInvoiceSettings} disabled={invoiceLoading}>
+                {invoiceLoading ? "Kaydediliyor..." : "Fatura Ayarlarını Kaydet"}
               </Button>
             </CardFooter>
           </Card>
@@ -596,161 +320,110 @@ export default function SellerPaymentSettingsPage() {
         <TabsContent value="bank" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Banka Hesapları</CardTitle>
-              <CardDescription>Ödemelerin aktarılacağı banka hesaplarınızı yönetin.</CardDescription>
+              <CardTitle>Yeni Banka Hesabı Ekle</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {bankAccounts.length > 0 ? (
-                <div className="space-y-4">
-                  {bankAccounts.map((account) => (
-                    <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <div className="font-medium">{account.bank_name}</div>
-                        <div className="text-sm text-muted-foreground">{account.account_holder_name}</div>
-                        <div className="text-sm">{account.iban}</div>
-                        {account.is_default && (
-                          <div className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full inline-block mt-1">
-                            Varsayılan
-                          </div>
-                        )}
-                      </div>
-                      <Button variant="ghost" size="icon" onClick={() => deleteBankAccount(account.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Banka hesabı bulunamadı</AlertTitle>
-                  <AlertDescription>
-                    Henüz bir banka hesabı eklemediniz. Ödemeleri alabilmek için en az bir banka hesabı eklemelisiniz.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Separator />
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Yeni Banka Hesabı Ekle</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bank-name">Banka Adı</Label>
-                  <Input
-                    id="bank-name"
-                    value={newBankAccount.bankName}
-                    onChange={(e) =>
-                      setNewBankAccount({
-                        ...newBankAccount,
-                        bankName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="account-holder">Hesap Sahibi</Label>
-                  <Input
-                    id="account-holder"
-                    value={newBankAccount.accountHolderName}
-                    onChange={(e) =>
-                      setNewBankAccount({
-                        ...newBankAccount,
-                        accountHolderName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="iban">IBAN</Label>
-                  <Input
-                    id="iban"
-                    value={newBankAccount.iban}
-                    onChange={(e) =>
-                      setNewBankAccount({
-                        ...newBankAccount,
-                        iban: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="default-account"
-                      checked={newBankAccount.isDefault}
-                      onCheckedChange={(checked) =>
-                        setNewBankAccount({
-                          ...newBankAccount,
-                          isDefault: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="default-account">Varsayılan hesap olarak ayarla</Label>
+            <form onSubmit={handleAddBankAccount}>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="bankName">Banka Adı</Label>
+                    <Input id="bankName" value={newBankAccount.bankName} onChange={(e) => setNewBankAccount({ ...newBankAccount, bankName: e.target.value })} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="accountHolderName">Hesap Sahibi Adı</Label>
+                    <Input id="accountHolderName" value={newBankAccount.accountHolderName} onChange={(e) => setNewBankAccount({ ...newBankAccount, accountHolderName: e.target.value })} required />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label htmlFor="iban">IBAN (TR ile başlamalı, 26 karakter)</Label>
+                    <Input id="iban" value={newBankAccount.iban} onChange={(e) => setNewBankAccount({ ...newBankAccount, iban: e.target.value.toUpperCase() })} required maxLength={26} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="accountNumber">Hesap Numarası (Opsiyonel)</Label>
+                    <Input id="accountNumber" value={newBankAccount.account_number} onChange={(e) => setNewBankAccount({ ...newBankAccount, account_number: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="branchCode">Şube Kodu (Opsiyonel)</Label>
+                    <Input id="branchCode" value={newBankAccount.branch_code} onChange={(e) => setNewBankAccount({ ...newBankAccount, branch_code: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="swiftBicCode">SWIFT/BIC (Opsiyonel)</Label>
+                    <Input id="swiftBicCode" value={newBankAccount.swift_bic_code} onChange={(e) => setNewBankAccount({ ...newBankAccount, swift_bic_code: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="currency">Para Birimi</Label>
+                    <Input id="currency" value={newBankAccount.currency} onChange={(e) => setNewBankAccount({ ...newBankAccount, currency: e.target.value.toUpperCase() })} required />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label htmlFor="instructions">Talimatlar (Opsiyonel)</Label>
+                    <Input id="instructions" value={newBankAccount.instructions} onChange={(e) => setNewBankAccount({ ...newBankAccount, instructions: e.target.value })} placeholder="Örn: Açıklamaya X yazınız" />
+                  </div>
+                  <div className="flex items-center space-x-2 md:col-span-2">
+                    <Switch id="isDefault" checked={newBankAccount.isDefault} onCheckedChange={(checked) => setNewBankAccount({ ...newBankAccount, isDefault: checked })} />
+                    <Label htmlFor="isDefault">Varsayılan hesap olarak ayarla</Label>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={addBankAccount} disabled={loading}>
-                <Plus className="w-4 h-4 mr-2" />
-                {loading ? "Ekleniyor..." : "Hesap Ekle"}
-              </Button>
-            </CardFooter>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" disabled={bankAccountLoading}>
+                  {bankAccountLoading ? "Ekleniyor..." : "Banka Hesabını Ekle"}
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
 
-          {/* Ödeme Talebi Oluşturma Kartı */}
           <Card>
             <CardHeader>
-              <CardTitle>Ödeme Talebi Oluştur</CardTitle>
-              <CardDescription>Hesabınıza para çekmek için bir ödeme talebi oluşturun.</CardDescription>
+              <CardTitle>Kayıtlı Banka Hesaplarım</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="payout-amount">Tutar (TL)</Label>
-                <Input
-                  id="payout-amount"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={newPayout.amount}
-                  onChange={e => setNewPayout({ ...newPayout, amount: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bank-account">Banka Hesabı</Label>
-                {bankAccounts.length === 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-red-500">Ödeme talebi oluşturabilmek için önce bir banka hesabı eklemelisiniz.</p>
-                    <Button onClick={() => router.push('/seller/payment-settings?tab=bank')}>Banka Hesabı Ekle</Button>
-                  </div>
-                ) : (
-                  <select
-                    id="bank-account"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={newPayout.bankAccountId}
-                    onChange={e => setNewPayout({ ...newPayout, bankAccountId: e.target.value })}
-                  >
-                    <option value="">Banka hesabı seçin</option>
-                    {bankAccounts.map(account => (
-                      <option key={account.id} value={account.id}>
-                        {account.bank_name} - {account.iban.slice(-4)}{account.is_default ? " (Varsayılan)" : ""}
-                      </option>
+            <CardContent>
+              {bankAccounts && bankAccounts.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Banka Adı</TableHead>
+                      <TableHead>Hesap Sahibi</TableHead>
+                      <TableHead>IBAN</TableHead>
+                      <TableHead>Varsayılan</TableHead>
+                      <TableHead>Doğrulanma</TableHead>
+                      <TableHead className="text-right">İşlemler</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bankAccounts.map((account) => (
+                      <TableRow key={account.id}>
+                        <TableCell>{account.bank_name}</TableCell>
+                        <TableCell>{account.account_holder_name}</TableCell>
+                        <TableCell>{account.iban}</TableCell>
+                        <TableCell>
+                          {account.is_default ? (
+                            <Badge className="bg-blue-500 text-white">Evet</Badge>
+                          ) : (
+                            <Button variant="outline" size="sm" disabled>Ayarla</Button>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {account.is_verified ? (
+                            <Badge className="bg-green-500 text-white">Doğrulandı</Badge>
+                          ) : (
+                            <Badge variant="secondary">Beklemede</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" asChild className="mr-2" title="Düzenle">
+                            <span><Edit className="h-4 w-4" /></span>
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Sil" onClick={() => handleDeleteBankAccount(account.id)} disabled={bankAccountLoading}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </select>
-                )}
-              </div>
+                  </TableBody>
+                </Table>
+              ) : (
+                !loading && <p className="text-center text-muted-foreground py-4">Kayıtlı banka hesabınız bulunmuyor.</p>
+              )}
             </CardContent>
-            <CardFooter>
-              <Button onClick={requestPayout} disabled={loadingPayout}>
-                {loadingPayout ? "İşleniyor..." : "Ödeme Talebi Oluştur"}
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
@@ -761,143 +434,87 @@ export default function SellerPaymentSettingsPage() {
               <CardDescription>Ödeme almak için kullanacağınız ödeme sağlayıcılarını yapılandırın.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {paymentIntegrations.length > 0 ? (
-                <div className="space-y-4">
-                  {paymentIntegrations.map((integration) => (
-                    <div key={integration.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <div className="font-medium capitalize">{integration.provider}</div>
-                        <div className="text-sm text-muted-foreground">Merchant ID: {integration.merchant_id}</div>
-                        <div className="text-sm">API Key: ••••••••{integration.api_key.slice(-4)}</div>
-                        {integration.is_active ? (
-                          <div className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full inline-block mt-1">
-                            Aktif
-                          </div>
-                        ) : (
-                          <div className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full inline-block mt-1">
-                            Pasif
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          // Entegrasyon düzenleme fonksiyonu
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Ödeme entegrasyonu bulunamadı</AlertTitle>
-                  <AlertDescription>
-                    Henüz bir ödeme entegrasyonu eklemediniz. Ödemeleri işleyebilmek için en az bir ödeme sağlayıcısı
-                    entegrasyonu eklemelisiniz.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Separator />
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Yeni Ödeme Entegrasyonu Ekle</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="provider">Ödeme Sağlayıcı</Label>
-                  <select
-                    id="provider"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newIntegration.provider}
-                    onChange={(e) =>
-                      setNewIntegration({
-                        ...newIntegration,
-                        provider: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="iyzico">iyzico</option>
-                    <option value="paytr">PayTR</option>
-                    <option value="payu">PayU</option>
-                    <option value="gpay">Garanti Pay</option>
-                    <option value="akbank">Akbank Sanal POS</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="merchant-id">Merchant ID</Label>
-                  <Input
-                    id="merchant-id"
-                    value={newIntegration.merchantId}
-                    onChange={(e) =>
-                      setNewIntegration({
-                        ...newIntegration,
-                        merchantId: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="api-key">API Anahtarı</Label>
-                  <Input
-                    id="api-key"
-                    value={newIntegration.apiKey}
-                    onChange={(e) =>
-                      setNewIntegration({
-                        ...newIntegration,
-                        apiKey: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="api-secret">API Secret</Label>
-                  <Input
-                    id="api-secret"
-                    type="password"
-                    value={newIntegration.apiSecret}
-                    onChange={(e) =>
-                      setNewIntegration({
-                        ...newIntegration,
-                        apiSecret: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="active-integration"
-                      checked={newIntegration.isActive}
-                      onCheckedChange={(checked) =>
-                        setNewIntegration({
-                          ...newIntegration,
-                          isActive: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="active-integration">Entegrasyonu aktif et</Label>
-                  </div>
-                </div>
-              </div>
+              <p className="text-muted-foreground">Yakında...</p>
             </CardContent>
             <CardFooter>
-              <Button onClick={addPaymentIntegration} disabled={loading}>
-                <Plus className="w-4 h-4 mr-2" />
-                {loading ? "Ekleniyor..." : "Entegrasyon Ekle"}
+              <Button disabled>
+                {integrationLoading ? "Ekleniyor..." : "Entegrasyon Ekle"}
               </Button>
             </CardFooter>
           </Card>
         </TabsContent>
+
+        <TabsContent value="payout" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ödeme Talebi Oluştur</CardTitle>
+              <CardDescription>Birikmiş hak edişlerinizi çekmek için talepte bulunun.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg text-blue-700 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2" /> Çekilebilir Bakiye
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-blue-700">{currentBalance.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}</p>
+                  <p className="text-xs text-blue-600 mt-1">Bu bakiye, onay bekleyen talepleriniz düşülmeden önceki brüt bakiyenizdir.</p>
+                </CardContent>
+              </Card>
+
+              <form onSubmit={(e) => { e.preventDefault(); requestPayout(); }}>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="payoutAmount">Çekilecek Tutar (TRY)</Label>
+                    <Input
+                      id="payoutAmount"
+                      type="number"
+                      value={newPayout.amount}
+                      onChange={(e) => setNewPayout({ ...newPayout, amount: e.target.value })}
+                      placeholder="0.00"
+                      required
+                      min="1"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="payoutBankAccount">Banka Hesabı</Label>
+                    <select
+                      id="payoutBankAccount"
+                      value={newPayout.bankAccountId}
+                      onChange={(e) => setNewPayout({ ...newPayout, bankAccountId: e.target.value })}
+                      required
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-focus file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <option value="">Banka hesabı seçin...</option>
+                      {bankAccounts.filter(acc => acc.is_verified).map(account => (
+                        <option key={account.id} value={account.id}>
+                          {account.bank_name} - IBAN: ...{account.iban.slice(-4)} {account.is_default ? "(Varsayılan)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {bankAccounts.filter(acc => acc.is_verified).length === 0 &&
+                      <p className="text-sm text-red-500 pt-1">Ödeme talebi için doğrulanmış banka hesabınız bulunmuyor. Lütfen "Banka Hesapları" sekmesinden bir hesap ekleyin ve doğrulamasını bekleyin.</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="payoutDescription">Açıklama (Ödeme Referansı İçin)</Label>
+                    <Input
+                      id="payoutDescription"
+                      value={newPayout.description}
+                      onChange={(e) => setNewPayout({ ...newPayout, description: e.target.value })}
+                      placeholder="Örn: Ağustos 2024 Hak Edişi"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loadingPayout || bankAccounts.filter(acc => acc.is_verified).length === 0 || parseFloat(newPayout.amount || "0") <= 0 || parseFloat(newPayout.amount || "0") > currentBalance}>
+                    {loadingPayout ? "Talep Gönderiliyor..." : "Ödeme Talebini Gönder"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   )

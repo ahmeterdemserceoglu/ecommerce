@@ -49,6 +49,7 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useDatabaseBackup } from "./database-backup"
+import AdminLayout from "@/components/admin/AdminLayout"
 
 export default function DatabasePage() {
   const router = useRouter()
@@ -330,9 +331,11 @@ export default function DatabasePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Yükleniyor...</p>
-      </div>
+      <AdminLayout>
+        <div className="flex h-screen items-center justify-center">
+          <p>Yükleniyor...</p>
+        </div>
+      </AdminLayout>
     )
   }
 
@@ -354,87 +357,7 @@ export default function DatabasePage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Admin Panel</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="px-2 space-y-1">
-            {sidebarItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                  router.pathname === item.href
-                    ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                {item.icon}
-                <span className="ml-3">{item.label}</span>
-              </a>
-            ))}
-          </nav>
-        </div>
-        <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Çıkış Yap
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetContent side="left" className="p-0 w-64">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto py-4">
-            <nav className="px-2 space-y-1">
-              {sidebarItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                    router.pathname === item.href
-                      ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.label}</span>
-                </a>
-              ))}
-            </nav>
-          </div>
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                signOut()
-                setIsMobileMenuOpen(false)
-              }}
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Çıkış Yap
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
+    <AdminLayout>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <div className="md:hidden bg-white dark:bg-gray-800 border-b p-4 flex items-center justify-between">
@@ -444,7 +367,6 @@ export default function DatabasePage() {
           <h1 className="text-xl font-bold">Veritabanı</h1>
           <div className="w-6"></div> {/* Spacer for alignment */}
         </div>
-
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto">
@@ -912,6 +834,6 @@ export default function DatabasePage() {
           </div>
         </main>
       </div>
-    </div>
+    </AdminLayout>
   )
 }

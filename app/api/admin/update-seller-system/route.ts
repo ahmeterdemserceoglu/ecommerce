@@ -1,41 +1,54 @@
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import fs from "fs"
 import path from "path"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore })
 
   try {
-    // Check if user is authenticated and is admin
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Standardized Admin authorization check
+    const { data: { session }, error: sessionError } = await supabaseAuth.auth.getSession()
+    if (sessionError) {
+      console.error("[API /api/admin/update-seller-system POST] Error getting session:", sessionError.message)
+      return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
     }
-
-    // Get user role from profiles table
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
+    if (!session) {
+      console.log("[API /api/admin/update-seller-system POST] No session found.")
+      return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+    }
+    const { data: userProfile, error: profileError } = await supabaseAuth
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
       .single()
-
-    if (profileError || !profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (profileError) {
+      console.error(`[API /api/admin/update-seller-system POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+      return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
     }
+    if (!userProfile || userProfile.role !== 'admin') {
+      console.warn(`[API /api/admin/update-seller-system POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+    }
+    console.log(`[API /api/admin/update-seller-system POST] Admin user ${session.user.id} authorized.`)
+    // End standardized admin authorization check
 
-    // Check if sellers table exists
-    const { data: tableExists, error: tableCheckError } = await supabase.rpc("check_table_exists", {
+    // Initialize Supabase client with SERVICE_ROLE_KEY for subsequent operations
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    // Check if sellers table exists (using admin client)
+    const { data: tableExists, error: tableCheckError } = await supabaseAdmin.rpc("check_table_exists", {
       table_name: "sellers",
     })
 
-    // If sellers table doesn't exist, create it
-    if (!tableExists || tableCheckError) {
+    // If sellers table doesn't exist or error checking, create it (using admin client)
+    if (!tableExists || (tableExists && !(tableExists as any).exists) || tableCheckError) {
+      if (tableCheckError) console.error("Error checking if sellers table exists, attempting creation:", tableCheckError)
+      else console.log("Sellers table does not exist or check was inconclusive, attempting creation.")
+
       // Create sellers table
       const createSellersTableSQL = `
         CREATE TABLE IF NOT EXISTS public.sellers (
@@ -69,7 +82,9 @@ export async function POST(request: Request) {
       `
 
       try {
-        await supabase.rpc("execute_sql", { query: createSellersTableSQL })
+        // Use supabaseAdmin for this RPC call
+        await supabaseAdmin.rpc("execute_sql", { query: createSellersTableSQL })
+        console.log("Sellers table creation attempt finished.")
       } catch (error) {
         console.error("Error creating sellers table:", error)
       }
@@ -79,13 +94,14 @@ export async function POST(request: Request) {
     const sqlFilePath = path.join(process.cwd(), "lib", "database", "sql-update-seller-system.sql")
     const sqlQuery = fs.readFileSync(sqlFilePath, "utf8")
 
-    // Execute the query
+    // Execute the query (using admin client)
     try {
-      // First try using the execute_sql function
-      const { data, error } = await supabase.rpc("execute_sql", { query: sqlQuery })
+      // First try using the execute_sql function with admin client
+      const { data, error } = await supabaseAdmin.rpc("execute_sql", { query: sqlQuery })
 
       if (error) {
-        // If the function doesn't exist, try direct execution
+        console.warn("RPC execute_sql with supabaseAdmin failed, trying direct fetch with service key. Error:", error)
+        // If the function doesn't exist or fails, try direct execution with service key
         const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/execute_sql`, {
           method: "POST",
           headers: {

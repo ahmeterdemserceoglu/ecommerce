@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
     // Satıcı bilgilerini kontrol et
     const { data: seller, error: sellerError } = await supabaseClient
       .from("sellers")
-      .select("*")
+      .select("id") // Only select id, no need for '*'
       .eq("user_id", user.id)
       .single()
 
-    if (sellerError) {
+    if (sellerError || !seller) { // Added check for !seller
       return NextResponse.json(
         {
           success: false,
@@ -53,11 +53,51 @@ export async function GET(request: NextRequest) {
       .select("*")
       .eq("seller_id", seller.id)
 
+    // Satıcı bakiye bilgilerini al (seller_ledgers)
+    const { data: ledgerEntries, error: ledgerError } = await supabaseClient
+      .from("seller_ledgers")
+      .select("amount, transaction_type") // Select only necessary fields
+      .eq("seller_id", seller.id)
+
+    if (ledgerError) {
+      console.error("Error fetching seller ledger:", ledgerError)
+      // Decide if this should be a critical error or if balance can be 0
+      // For now, let's assume it's not critical and balance will be 0
+    }
+
+    let currentBalance = 0
+    if (ledgerEntries) {
+      currentBalance = ledgerEntries.reduce((acc, entry) => {
+        // Amounts are stored as positive for credits and negative for debits
+        // If not, adjust logic here, e.g., if transaction_type dictates sign.
+        return acc + (entry.amount || 0)
+      }, 0)
+    }
+
+    // Son işlemdeki bakiye bilgisini alarak güncel bakiyeyi hesapla
+    const { data: lastLedgerEntry, error: lastLedgerError } = await supabaseClient
+      .from('seller_ledgers')
+      .select('balance_after_transaction')
+      .eq('seller_id', seller.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let calculatedCurrentBalance = 0;
+    if (lastLedgerError && lastLedgerError.code !== 'PGRST116') { // PGRST116: no rows found
+      console.error("Error fetching last seller ledger entry:", lastLedgerError);
+      // Potentially return an error or handle as 0 balance
+    } else if (lastLedgerEntry) {
+      calculatedCurrentBalance = lastLedgerEntry.balance_after_transaction || 0;
+    }
+
+
     return NextResponse.json({
       success: true,
       invoiceSettings: invoiceSettings || null,
       bankAccounts: bankAccounts || [],
       paymentIntegrations: paymentIntegrations || [],
+      currentBalance: calculatedCurrentBalance, // Use the balance from the last ledger entry
     })
   } catch (error: any) {
     console.error("Payment settings error:", error)

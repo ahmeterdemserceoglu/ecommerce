@@ -13,6 +13,7 @@ import {
   Users,
   Bell,
   LogOut,
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
@@ -21,6 +22,7 @@ import { useAuth } from "@/hooks/use-auth"
 const menu = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/seller/dashboard" },
   { label: "Ürünler", icon: Package, href: "/seller/products" },
+  { label: "Ürün Soruları", icon: MessageCircle, href: "/seller/questions" },
   { label: "Siparişler", icon: ClipboardList, href: "/seller/orders" },
   { label: "Mağazam", icon: Store, href: "/seller/stores" },
   { label: "Ödemeler", icon: DollarSign, href: "/seller/payouts" },
@@ -45,11 +47,10 @@ export default function SellerSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                pathname === item.href
+              className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${pathname === item.href
                   ? "bg-gray-100 dark:bg-gray-700 text-primary"
                   : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
+                }`}
             >
               <item.icon className="h-5 w-5 mr-3" />
               {item.label}

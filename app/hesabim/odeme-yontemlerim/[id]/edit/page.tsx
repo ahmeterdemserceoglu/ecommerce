@@ -19,11 +19,11 @@ export default function EditCardPage() {
   const [cardholderName, setCardholderName] = useState("")
   const [expiryMonth, setExpiryMonth] = useState("")
   const [expiryYear, setExpiryYear] = useState("")
-  const [step, setStep] = useState<'verify'|'edit'>("verify")
+  const [step, setStep] = useState<'verify' | 'edit'>("verify")
   const [code, setCode] = useState("")
   const [codeSent, setCodeSent] = useState(false)
   const [codeLoading, setCodeLoading] = useState(false)
-  const [codeError, setCodeError] = useState<string|null>(null)
+  const [codeError, setCodeError] = useState<string | null>(null)
   const [cardNumber, setCardNumber] = useState("")
   const [cvv, setCvv] = useState("")
 
@@ -42,8 +42,6 @@ export default function EditCardPage() {
           setCardholderName(data.card.card_holder_name || "")
           setExpiryMonth(data.card.expiry_month || "")
           setExpiryYear(data.card.expiry_year || "")
-          setCardNumber(data.card.card_number || "")
-          setCvv(data.card.cvv || "")
         } catch (err: any) {
           setError(err.message)
         } finally {

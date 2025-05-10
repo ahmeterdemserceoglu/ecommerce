@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { supabase } from "@/lib/supabase"
 import { AlertCircle, Check, X, Eye, Store, User, Calendar, MapPin, Phone, Mail } from "lucide-react"
+import AdminLayout from "@/components/admin/AdminLayout"
 
 export default function SellerApplicationsPage() {
   const router = useRouter()
@@ -144,8 +145,10 @@ export default function SellerApplicationsPage() {
         address: application.address,
         city: application.city,
         country: application.country,
+        approved: true,
         is_verified: false,
         is_featured: false,
+        approved_at: new Date().toISOString(),
       })
 
       if (storeError) throw storeError
@@ -257,35 +260,237 @@ export default function SellerApplicationsPage() {
     }).format(date)
   }
 
-  if (loading || authLoading) {
+  if (loading) {
     return (
-      <div className="container max-w-6xl py-8">
-        <h1 className="text-2xl font-bold mb-6">Satıcı Başvuruları</h1>
-        <div className="flex justify-center py-10">
-          <p>Yükleniyor...</p>
+      <AdminLayout>
+        <div className="container py-10">
+          <h1 className="text-2xl font-bold mb-6">Satıcı Başvuruları</h1>
+          <div className="flex justify-center py-10">
+            <p>Yükleniyor...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="container max-w-6xl py-8">
-      <h1 className="text-2xl font-bold mb-6">Satıcı Başvuruları</h1>
+    <AdminLayout>
+      <div className="container py-10">
+        <h1 className="text-2xl font-bold mb-6">Satıcı Başvuruları</h1>
 
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="pending">Bekleyen</TabsTrigger>
-          <TabsTrigger value="approved">Onaylanan</TabsTrigger>
-          <TabsTrigger value="rejected">Reddedilen</TabsTrigger>
-          <TabsTrigger value="all">Tümü</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="pending">Bekleyen</TabsTrigger>
+            <TabsTrigger value="approved">Onaylanan</TabsTrigger>
+            <TabsTrigger value="rejected">Reddedilen</TabsTrigger>
+            <TabsTrigger value="all">Tümü</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="pending">
-          {applications.filter((app) => app.status === "pending").length > 0 ? (
-            <div className="space-y-4">
-              {applications
-                .filter((app) => app.status === "pending")
-                .map((application) => (
+          <TabsContent value="pending">
+            {applications.filter((app) => app.status === "pending").length > 0 ? (
+              <div className="space-y-4">
+                {applications
+                  .filter((app) => app.status === "pending")
+                  .map((application) => (
+                    <Card key={application.id}>
+                      <CardHeader className="bg-muted/50 py-3">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">{application.store_name}</CardTitle>
+                            {getStatusBadge(application.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Başvuru Tarihi: {formatDate(application.created_at)}</span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <h3 className="text-sm font-medium mb-2">Mağaza Bilgileri</h3>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Store className="h-4 w-4 text-muted-foreground" />
+                                <span>{application.store_name}</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                  <p>{application.address}</p>
+                                  <p>
+                                    {application.city}, {application.country}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-medium mb-2">İletişim Bilgileri</h3>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span>{application.profile?.email}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                <span>{application.contact_email}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                <span>{application.contact_phone}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <h3 className="text-sm font-medium mb-2">Mağaza Açıklaması</h3>
+                          <p className="text-sm text-muted-foreground">{application.store_description}</p>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleReject(application.id)}
+                            disabled={processingId === application.id}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reddet
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => handleApprove(application.id)}
+                            disabled={processingId === application.id}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Onayla
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Detaylar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-10">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Bekleyen başvuru bulunmuyor</h3>
+                  <p className="text-muted-foreground text-center">Şu anda bekleyen satıcı başvurusu bulunmuyor.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Diğer tablar için benzer içerikler eklenebilir */}
+          <TabsContent value="approved">
+            {applications.filter((app) => app.status === "approved").length > 0 ? (
+              <div className="space-y-4">
+                {applications
+                  .filter((app) => app.status === "approved")
+                  .map((application) => (
+                    <Card key={application.id}>
+                      <CardHeader className="bg-muted/50 py-3">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">{application.store_name}</CardTitle>
+                            {getStatusBadge(application.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Onay Tarihi: {formatDate(application.updated_at)}</span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span>{application.profile?.email}</span>
+                        </div>
+                        <Alert className="border-green-500 text-green-700">
+                          <Check className="h-4 w-4" />
+                          <AlertTitle>Başvuru Onaylandı</AlertTitle>
+                          <AlertDescription>Bu başvuru onaylandı ve mağaza oluşturuldu.</AlertDescription>
+                        </Alert>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-10">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Onaylanan başvuru bulunmuyor</h3>
+                  <p className="text-muted-foreground text-center">Şu anda onaylanan satıcı başvurusu bulunmuyor.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rejected">
+            {applications.filter((app) => app.status === "rejected").length > 0 ? (
+              <div className="space-y-4">
+                {applications
+                  .filter((app) => app.status === "rejected")
+                  .map((application) => (
+                    <Card key={application.id}>
+                      <CardHeader className="bg-muted/50 py-3">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base">{application.store_name}</CardTitle>
+                            {getStatusBadge(application.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Ret Tarihi: {formatDate(application.updated_at)}</span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span>{application.profile?.email}</span>
+                        </div>
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Başvuru Reddedildi</AlertTitle>
+                          <AlertDescription>
+                            {application.admin_notes ? (
+                              <>
+                                <strong>Ret sebebi:</strong> {application.admin_notes}
+                              </>
+                            ) : (
+                              "Bu başvuru reddedildi."
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-10">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Reddedilen başvuru bulunmuyor</h3>
+                  <p className="text-muted-foreground text-center">Şu anda reddedilen satıcı başvurusu bulunmuyor.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            {applications.length > 0 ? (
+              <div className="space-y-4">
+                {applications.map((application) => (
                   <Card key={application.id}>
                     <CardHeader className="bg-muted/50 py-3">
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -338,261 +543,63 @@ export default function SellerApplicationsPage() {
                         </div>
                       </div>
 
+                      {application.status === "rejected" && application.admin_notes && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Ret Sebebi</AlertTitle>
+                          <AlertDescription>{application.admin_notes}</AlertDescription>
+                        </Alert>
+                      )}
+
                       <div className="mb-4">
                         <h3 className="text-sm font-medium mb-2">Mağaza Açıklaması</h3>
                         <p className="text-sm text-muted-foreground">{application.store_description}</p>
                       </div>
 
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleReject(application.id)}
-                          disabled={processingId === application.id}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Reddet
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-green-500 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleApprove(application.id)}
-                          disabled={processingId === application.id}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Onayla
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          Detaylar
-                        </Button>
-                      </div>
+                      {application.status === "pending" && (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleReject(application.id)}
+                            disabled={processingId === application.id}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reddet
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => handleApprove(application.id)}
+                            disabled={processingId === application.id}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Onayla
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Detaylar
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Bekleyen başvuru bulunmuyor</h3>
-                <p className="text-muted-foreground text-center">Şu anda bekleyen satıcı başvurusu bulunmuyor.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Diğer tablar için benzer içerikler eklenebilir */}
-        <TabsContent value="approved">
-          {applications.filter((app) => app.status === "approved").length > 0 ? (
-            <div className="space-y-4">
-              {applications
-                .filter((app) => app.status === "approved")
-                .map((application) => (
-                  <Card key={application.id}>
-                    <CardHeader className="bg-muted/50 py-3">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-base">{application.store_name}</CardTitle>
-                          {getStatusBadge(application.status)}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>Onay Tarihi: {formatDate(application.updated_at)}</span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span>{application.profile?.email}</span>
-                      </div>
-                      <Alert className="border-green-500 text-green-700">
-                        <Check className="h-4 w-4" />
-                        <AlertTitle>Başvuru Onaylandı</AlertTitle>
-                        <AlertDescription>Bu başvuru onaylandı ve mağaza oluşturuldu.</AlertDescription>
-                      </Alert>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Onaylanan başvuru bulunmuyor</h3>
-                <p className="text-muted-foreground text-center">Şu anda onaylanan satıcı başvurusu bulunmuyor.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="rejected">
-          {applications.filter((app) => app.status === "rejected").length > 0 ? (
-            <div className="space-y-4">
-              {applications
-                .filter((app) => app.status === "rejected")
-                .map((application) => (
-                  <Card key={application.id}>
-                    <CardHeader className="bg-muted/50 py-3">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-base">{application.store_name}</CardTitle>
-                          {getStatusBadge(application.status)}
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          <span>Ret Tarihi: {formatDate(application.updated_at)}</span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span>{application.profile?.email}</span>
-                      </div>
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Başvuru Reddedildi</AlertTitle>
-                        <AlertDescription>
-                          {application.admin_notes ? (
-                            <>
-                              <strong>Ret sebebi:</strong> {application.admin_notes}
-                            </>
-                          ) : (
-                            "Bu başvuru reddedildi."
-                          )}
-                        </AlertDescription>
-                      </Alert>
-                    </CardContent>
-                  </Card>
-                ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Reddedilen başvuru bulunmuyor</h3>
-                <p className="text-muted-foreground text-center">Şu anda reddedilen satıcı başvurusu bulunmuyor.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="all">
-          {applications.length > 0 ? (
-            <div className="space-y-4">
-              {applications.map((application) => (
-                <Card key={application.id}>
-                  <CardHeader className="bg-muted/50 py-3">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base">{application.store_name}</CardTitle>
-                        {getStatusBadge(application.status)}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>Başvuru Tarihi: {formatDate(application.created_at)}</span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Mağaza Bilgileri</h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Store className="h-4 w-4 text-muted-foreground" />
-                            <span>{application.store_name}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p>{application.address}</p>
-                              <p>
-                                {application.city}, {application.country}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">İletişim Bilgileri</h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span>{application.profile?.email}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span>{application.contact_email}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{application.contact_phone}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {application.status === "rejected" && application.admin_notes && (
-                      <Alert variant="destructive" className="mb-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Ret Sebebi</AlertTitle>
-                        <AlertDescription>{application.admin_notes}</AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-2">Mağaza Açıklaması</h3>
-                      <p className="text-sm text-muted-foreground">{application.store_description}</p>
-                    </div>
-
-                    {application.status === "pending" && (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleReject(application.id)}
-                          disabled={processingId === application.id}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Reddet
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-green-500 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleApprove(application.id)}
-                          disabled={processingId === application.id}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Onayla
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          Detaylar
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Başvuru bulunmuyor</h3>
-                <p className="text-muted-foreground text-center">Şu anda hiç satıcı başvurusu bulunmuyor.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-10">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Başvuru bulunmuyor</h3>
+                  <p className="text-muted-foreground text-center">Şu anda hiç satıcı başvurusu bulunmuyor.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AdminLayout>
   )
 }

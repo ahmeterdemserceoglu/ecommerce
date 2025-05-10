@@ -33,6 +33,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import AdminLayout from "@/components/admin/AdminLayout"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -273,9 +274,11 @@ export default function SettingsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Yükleniyor...</p>
-      </div>
+      <AdminLayout>
+        <div className="flex h-screen items-center justify-center">
+          <p>Yükleniyor...</p>
+        </div>
+      </AdminLayout>
     )
   }
 
@@ -283,351 +286,247 @@ export default function SettingsPage() {
     return null
   }
 
-  const sidebarItems = [
-    { icon: <LayoutDashboard className="h-5 w-5" />, label: "Dashboard", href: "/admin/dashboard" },
-    { icon: <Users className="h-5 w-5" />, label: "Kullanıcılar", href: "/admin/users" },
-    { icon: <Store className="h-5 w-5" />, label: "Mağazalar", href: "/admin/stores" },
-    { icon: <ShoppingBag className="h-5 w-5" />, label: "Ürünler", href: "/admin/products" },
-    { icon: <Tag className="h-5 w-5" />, label: "Kategoriler", href: "/admin/categories" },
-    { icon: <Bell className="h-5 w-5" />, label: "Duyurular", href: "/admin/panel/duyurular" },
-    { icon: <AlertCircle className="h-5 w-5" />, label: "Satıcı Başvuruları", href: "/admin/panel/satici-basvurulari" },
-    { icon: <FileText className="h-5 w-5" />, label: "Siparişler", href: "/admin/orders" },
-    { icon: <Database className="h-5 w-5" />, label: "Veritabanı", href: "/admin/database" },
-    { icon: <Settings className="h-5 w-5" />, label: "Ayarlar", href: "/admin/settings" },
-  ]
-
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Admin Panel</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="px-2 space-y-1">
-            {sidebarItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                  router.pathname === item.href
-                    ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                {item.icon}
-                <span className="ml-3">{item.label}</span>
-              </a>
-            ))}
-          </nav>
-        </div>
-        <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Çıkış Yap
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetContent side="left" className="p-0 w-64">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto py-4">
-            <nav className="px-2 space-y-1">
-              {sidebarItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                    router.pathname === item.href
-                      ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.label}</span>
-                </a>
-              ))}
-            </nav>
-          </div>
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                signOut()
-                setIsMobileMenuOpen(false)
-              }}
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Çıkış Yap
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-white dark:bg-gray-800 border-b p-4 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className="h-6 w-6" />
-          </Button>
-          <h1 className="text-xl font-bold">Ayarlar</h1>
-          <div className="w-6"></div> {/* Spacer for alignment */}
-        </div>
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Site Ayarları</h1>
-              <div className="flex gap-2">
-                <Button onClick={handleSaveSettings}>Ayarları Kaydet</Button>
-                {needsDatabaseUpdate && (
-                  <Button onClick={updateDatabaseFunctions} variant="outline" disabled={isUpdating}>
-                    {isUpdating ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Güncelleniyor...
-                      </>
-                    ) : (
-                      "Veritabanı Fonksiyonlarını Oluştur"
-                    )}
-                  </Button>
-                )}
-              </div>
+    <AdminLayout>
+      {/* --- Main Content --- */}
+      <div className="container py-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold">Site Ayarları</h1>
+            <div className="flex gap-2">
+              <Button onClick={handleSaveSettings}>Ayarları Kaydet</Button>
+              {needsDatabaseUpdate && (
+                <Button onClick={updateDatabaseFunctions} variant="outline" disabled={isUpdating}>
+                  {isUpdating ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Güncelleniyor...
+                    </>
+                  ) : (
+                    "Veritabanı Fonksiyonlarını Oluştur"
+                  )}
+                </Button>
+              )}
             </div>
+          </div>
 
-            {needsDatabaseUpdate && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertOctagon className="h-4 w-4" />
-                <AlertTitle>Veritabanı Güncellemesi Gerekli</AlertTitle>
-                <AlertDescription>
-                  Veritabanı fonksiyonları eksik. Ayarları düzgün şekilde kullanmak için "Veritabanı Fonksiyonlarını
-                  Oluştur" butonuna tıklayın.
-                </AlertDescription>
-              </Alert>
-            )}
+          {needsDatabaseUpdate && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertOctagon className="h-4 w-4" />
+              <AlertTitle>Veritabanı Güncellemesi Gerekli</AlertTitle>
+              <AlertDescription>
+                Veritabanı fonksiyonları eksik. Ayarları düzgün şekilde kullanmak için "Veritabanı Fonksiyonlarını
+                Oluştur" butonuna tıklayın.
+              </AlertDescription>
+            </Alert>
+          )}
 
-            <Tabs defaultValue="general">
-              <TabsList className="mb-4">
-                <TabsTrigger value="general">Genel</TabsTrigger>
-                <TabsTrigger value="contact">İletişim</TabsTrigger>
-                <TabsTrigger value="commerce">Ticaret</TabsTrigger>
-                <TabsTrigger value="display">Görünüm</TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="general">
+            <TabsList className="mb-4">
+              <TabsTrigger value="general">Genel</TabsTrigger>
+              <TabsTrigger value="contact">İletişim</TabsTrigger>
+              <TabsTrigger value="commerce">Ticaret</TabsTrigger>
+              <TabsTrigger value="display">Görünüm</TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="general">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Genel Ayarlar</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="siteName">Site Adı</Label>
-                        <Input id="siteName" name="siteName" value={settings.siteName} onChange={handleInputChange} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="siteDescription">Site Açıklaması</Label>
-                        <Textarea
-                          id="siteDescription"
-                          name="siteDescription"
-                          value={settings.siteDescription}
-                          onChange={handleInputChange}
-                        />
-                      </div>
+            <TabsContent value="general">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Genel Ayarlar</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="siteName">Site Adı</Label>
+                      <Input id="siteName" name="siteName" value={settings.siteName} onChange={handleInputChange} />
                     </div>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="maintenanceMode">Bakım Modu</Label>
-                        <Switch
-                          id="maintenanceMode"
-                          checked={settings.maintenanceMode}
-                          onCheckedChange={(checked) => handleSwitchChange("maintenanceMode", checked)}
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Bakım modu etkinleştirildiğinde, site sadece yöneticiler tarafından görüntülenebilir.
-                      </p>
+                      <Label htmlFor="siteDescription">Site Açıklaması</Label>
+                      <Textarea
+                        id="siteDescription"
+                        name="siteDescription"
+                        value={settings.siteDescription}
+                        onChange={handleInputChange}
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="allowRegistrations">Kayıtlara İzin Ver</Label>
-                        <Switch
-                          id="allowRegistrations"
-                          checked={settings.allowRegistrations}
-                          onCheckedChange={(checked) => handleSwitchChange("allowRegistrations", checked)}
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Devre dışı bırakıldığında, yeni kullanıcı kayıtları kabul edilmez.
-                      </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="maintenanceMode">Bakım Modu</Label>
+                      <Switch
+                        id="maintenanceMode"
+                        checked={settings.maintenanceMode}
+                        onCheckedChange={(checked) => handleSwitchChange("maintenanceMode", checked)}
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="allowSellerApplications">Satıcı Başvurularına İzin Ver</Label>
-                        <Switch
-                          id="allowSellerApplications"
-                          checked={settings.allowSellerApplications}
-                          onCheckedChange={(checked) => handleSwitchChange("allowSellerApplications", checked)}
-                        />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Devre dışı bırakıldığında, yeni satıcı başvuruları kabul edilmez.
-                      </p>
+                    <p className="text-sm text-muted-foreground">
+                      Bakım modu etkinleştirildiğinde, site sadece yöneticiler tarafından görüntülenebilir.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="allowRegistrations">Kayıtlara İzin Ver</Label>
+                      <Switch
+                        id="allowRegistrations"
+                        checked={settings.allowRegistrations}
+                        onCheckedChange={(checked) => handleSwitchChange("allowRegistrations", checked)}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                    <p className="text-sm text-muted-foreground">
+                      Devre dışı bırakıldığında, yeni kullanıcı kayıtları kabul edilmez.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="allowSellerApplications">Satıcı Başvurularına İzin Ver</Label>
+                      <Switch
+                        id="allowSellerApplications"
+                        checked={settings.allowSellerApplications}
+                        onCheckedChange={(checked) => handleSwitchChange("allowSellerApplications", checked)}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Devre dışı bırakıldığında, yeni satıcı başvuruları kabul edilmez.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              <TabsContent value="contact">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>İletişim Bilgileri</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="contactEmail">İletişim Email</Label>
-                        <Input
-                          id="contactEmail"
-                          name="contactEmail"
-                          type="email"
-                          value={settings.contactEmail}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contactPhone">İletişim Telefon</Label>
-                        <Input
-                          id="contactPhone"
-                          name="contactPhone"
-                          value={settings.contactPhone}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                    </div>
+            <TabsContent value="contact">
+              <Card>
+                <CardHeader>
+                  <CardTitle>İletişim Bilgileri</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="address">Adres</Label>
-                      <Textarea id="address" name="address" value={settings.address} onChange={handleInputChange} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="commerce">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Ticaret Ayarları</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="commissionRate">Komisyon Oranı (%)</Label>
-                        <Input
-                          id="commissionRate"
-                          name="commissionRate"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={settings.commissionRate}
-                          onChange={handleNumberChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="minOrderAmount">Minimum Sipariş Tutarı (₺)</Label>
-                        <Input
-                          id="minOrderAmount"
-                          name="minOrderAmount"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={settings.minOrderAmount}
-                          onChange={handleNumberChange}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="maxProductsPerStore">Mağaza Başına Maksimum Ürün</Label>
+                      <Label htmlFor="contactEmail">İletişim Email</Label>
                       <Input
-                        id="maxProductsPerStore"
-                        name="maxProductsPerStore"
+                        id="contactEmail"
+                        name="contactEmail"
+                        type="email"
+                        value={settings.contactEmail}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contactPhone">İletişim Telefon</Label>
+                      <Input
+                        id="contactPhone"
+                        name="contactPhone"
+                        value={settings.contactPhone}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Adres</Label>
+                    <Textarea id="address" name="address" value={settings.address} onChange={handleInputChange} />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="commerce">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ticaret Ayarları</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="commissionRate">Komisyon Oranı (%)</Label>
+                      <Input
+                        id="commissionRate"
+                        name="commissionRate"
                         type="number"
-                        min="1"
-                        step="1"
-                        value={settings.maxProductsPerStore}
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={settings.commissionRate}
                         onChange={handleNumberChange}
                       />
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="display">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Görünüm Ayarları</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="featuredStoreLimit">Öne Çıkan Mağaza Limiti</Label>
-                        <Input
-                          id="featuredStoreLimit"
-                          name="featuredStoreLimit"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={settings.featuredStoreLimit}
-                          onChange={handleNumberChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="featuredProductLimit">Öne Çıkan Ürün Limiti</Label>
-                        <Input
-                          id="featuredProductLimit"
-                          name="featuredProductLimit"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={settings.featuredProductLimit}
-                          onChange={handleNumberChange}
-                        />
-                      </div>
-                    </div>
                     <div className="space-y-2">
-                      <Label htmlFor="homepageCategoryLimit">Ana Sayfa Kategori Limiti</Label>
+                      <Label htmlFor="minOrderAmount">Minimum Sipariş Tutarı (₺)</Label>
                       <Input
-                        id="homepageCategoryLimit"
-                        name="homepageCategoryLimit"
+                        id="minOrderAmount"
+                        name="minOrderAmount"
                         type="number"
                         min="0"
                         step="1"
-                        value={settings.homepageCategoryLimit}
+                        value={settings.minOrderAmount}
                         onChange={handleNumberChange}
                       />
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxProductsPerStore">Mağaza Başına Maksimum Ürün</Label>
+                    <Input
+                      id="maxProductsPerStore"
+                      name="maxProductsPerStore"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={settings.maxProductsPerStore}
+                      onChange={handleNumberChange}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="display">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Görünüm Ayarları</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="featuredStoreLimit">Öne Çıkan Mağaza Limiti</Label>
+                      <Input
+                        id="featuredStoreLimit"
+                        name="featuredStoreLimit"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={settings.featuredStoreLimit}
+                        onChange={handleNumberChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="featuredProductLimit">Öne Çıkan Ürün Limiti</Label>
+                      <Input
+                        id="featuredProductLimit"
+                        name="featuredProductLimit"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={settings.featuredProductLimit}
+                        onChange={handleNumberChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="homepageCategoryLimit">Ana Sayfa Kategori Limiti</Label>
+                    <Input
+                      id="homepageCategoryLimit"
+                      name="homepageCategoryLimit"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={settings.homepageCategoryLimit}
+                      onChange={handleNumberChange}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   )
 }

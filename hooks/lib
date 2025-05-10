@@ -1,0 +1,14 @@
+<script>start("d:\\admin_panel_app\\lib\\");</script>
+<script>onHasParentDirectory();</script>
+<script>addRow(".dart_tool",".dart_tool",1,0,"0 B",1746885659,"5/10/25, 5:00:59 PM");</script>
+<script>addRow("models","models",1,0,"0 B",1746885659,"5/10/25, 5:00:59 PM");</script>
+<script>addRow("providers","providers",1,0,"0 B",1746885659,"5/10/25, 5:00:59 PM");</script>
+<script>addRow("screens","screens",1,0,"0 B",1746886305,"5/10/25, 5:11:45 PM");</script>
+<script>addRow("services","services",1,0,"0 B",1746886440,"5/10/25, 5:14:00 PM");</script>
+<script>addRow("utils","utils",1,0,"0 B",1746885659,"5/10/25, 5:00:59 PM");</script>
+<script>addRow("widgets","widgets",1,0,"0 B",1746885659,"5/10/25, 5:00:59 PM");</script>
+<script>addRow(".flutter-plugins",".flutter-plugins",0,3271,"3.2 kB",1746885558,"5/10/25, 4:59:18 PM");</script>
+<script>addRow(".flutter-plugins-dependencies",".flutter-plugins-dependencies",0,8975,"8.8 kB",1746885558,"5/10/25, 4:59:18 PM");</script>
+<script>addRow("main.dart","main.dart",0,1787,"1.7 kB",1746885952,"5/10/25, 5:05:52 PM");</script>
+<script>addRow("pubspec.lock","pubspec.lock",0,23243,"22.7 kB",1746885557,"5/10/25, 4:59:17 PM");</script>
+<script>addRow("README.md","README.md",0,3126,"3.1 kB",1746885627,"5/10/25, 5:00:27 PM");</script>

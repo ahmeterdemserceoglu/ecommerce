@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>E-posta Adresinizi Onaylayın</title>
+  </head>
+  <body style="font-family: Arial, Helvetica, sans-serif; background-color: #f8f8f8; color: #333333; line-height: 1.5; margin: 0; padding: 0;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f8f8;">
+      <tr>
+        <td align="center" style="padding: 20px 0;">
+          <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.1);">
+            <!-- HD TİCARET Banner Başlangıç -->
+            <tr>
+              <td align="center" style="background: linear-gradient(135deg, #ff6000 0%, #ff8c42 100%); padding: 30px 0; text-align: center; border-bottom: 5px solid rgba(0,0,0,0.05); font-family: Arial, sans-serif;">
+                <img 
+                  src="https://hdticaret.com/logo.jpg" 
+                  alt="HD TİCARET"
+                  width="150"
+                  style="max-width: 150px; width: 100%; height: auto; display: block; margin: 0 auto 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);" 
+                />
+                <div style="color: #ffffff; font-size: 26px; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.2); letter-spacing: 1px;">HD TİCARET</div>
+                <div style="color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 5px;">Güvenilir Alışveriş Platformu</div>
+              </td>
+            </tr>
+            <!-- HD TİCARET Banner Bitiş -->
+            
+            <!-- Content -->
+            <tr>
+              <td style="padding: 35px;">
+                <h1 style="color: #333333; font-size: 24px; margin-top: 0; margin-bottom: 20px; font-weight: 600; text-align: center;">E-posta Adresinizi Onaylayın</h1>
+                
+                <p style="margin: 15px 0; color: #555555; font-size: 16px;">
+                  Merhaba {{ .Email }},
+                </p>
+                
+                <p style="margin: 15px 0; color: #555555; font-size: 16px;">
+                  Platformumuza hoş geldiniz! Hesabınızı aktifleştirmek için aşağıdaki butona tıklayın:
+                </p>
+                
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 30px 0;">
+                  <tr>
+                    <td align="center">
+                      <table cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td align="center" style="background: linear-gradient(to bottom, #ff6000, #e85600); border-radius: 6px; box-shadow: 0 2px 5px rgba(232, 86, 0, 0.3);">
+                            <a href="{{ .ConfirmationURL }}" style="display: inline-block; color: #ffffff; padding: 15px 40px; text-decoration: none; font-weight: 600; font-size: 16px;">HESABIMI ONAYLA</a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+                
+                <p style="font-size: 14px; color: #777777; text-align: center; background-color: rgba(255, 96, 0, 0.05); padding: 12px; border-radius: 6px; border-left: 3px solid #ff6000;">
+                  Bu bağlantı 24 saat boyunca geçerlidir. Süre dolduğunda yeni bir onay e-postası talep edebilirsiniz.
+                </p>
+                
+                <hr style="height: 1px; background-color: #eeeeee; border: none; margin: 30px 0;">
+                
+                <p style="font-size: 13px; color: #777777;">
+                  Bu e-posta, platformumuza kayıt olduğunuz için gönderilmiştir. Eğer siz kaydolmadıysanız, lütfen bu e-postayı dikkate almayın.
+                </p>
+              </td>
+            </tr>
+            
+            <!-- Footer -->
+            <tr>
+              <td style="background-color: #f8f8f8; padding: 25px; font-size: 13px; color: #777777; text-align: center; border-top: 1px solid #eeeeee;">
+                <p style="margin: 10px 0;">
+                  © {{ now.Year }} HD Ticaret. Tüm hakları saklıdır.<br>
+                  <a href="{{ .SiteURL }}" style="color: #ff6000; text-decoration: none;">{{ .SiteURL }}</a>
+                </p>
+                
+                <p style="font-size: 12px; margin-top: 15px;">
+                  <a href="#" style="color: #555555; text-decoration: none; margin: 0 5px;">Gizlilik Politikası</a> • 
+                  <a href="#" style="color: #555555; text-decoration: none; margin: 0 5px;">Kullanım Koşulları</a> • 
+                  <a href="#" style="color: #555555; text-decoration: none; margin: 0 5px;">İletişim</a>
+                </p>
+                
+                <p style="font-size: 11px; color: #999999; margin-top: 15px; border-top: 1px solid #eeeeee; padding-top: 15px;">
+                  Bu e-postaları almak istemiyorsanız, <a href="{{ .UnsubscribeURL }}" style="color: #999999; text-decoration: underline;">Abonelikten Çık</a> linkine tıklayabilirsiniz.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html> 

@@ -6,29 +6,42 @@ import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
+import { processProductData, getDiscountPercentage } from "@/lib/product-utils"
 
 export const dynamic = "force-dynamic"
 
 export default async function DealProductsPage() {
   const supabase = createServerComponentClient<Database>({ cookies })
 
-  const { data: products } = await supabase
+  // First get all products with their variants
+  const { data: rawProducts } = await supabase
     .from("products")
     .select(`
       id,
       name,
+      slug,
       price,
       discount_price,
       image_url,
       store_id,
+      has_variants,
+      product_variants(*),
       stores!inner (
         id,
         name
       )
     `)
-    .not("discount_price", "is", null)
     .order("created_at", { ascending: false })
-    .limit(20)
+    .limit(50)
+
+  // Process the products to get the correct pricing including variants
+  const processed = rawProducts ? rawProducts.map(product => processProductData(product)) : []
+
+  // Filter to only include products with discounts
+  const products = processed.filter(product =>
+    product.discount_price !== null &&
+    product.discount_price < product.price
+  )
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -40,10 +53,10 @@ export default async function DealProductsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {products?.map((product) => {
-            const discountPercentage = Math.round(((product.price - product.discount_price!) / product.price) * 100)
+            const discountPercentage = getDiscountPercentage(product)
 
             return (
-              <Link href={`/urun/${product.id}`} key={product.id}>
+              <Link href={`/urun/${product.slug}`} key={product.id}>
                 <Card className="group hover:shadow-lg transition-shadow duration-200">
                   <CardContent className="p-4">
                     <div className="relative aspect-square mb-4">

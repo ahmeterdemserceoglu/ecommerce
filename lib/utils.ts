@@ -57,3 +57,19 @@ export function decodeUrlParam(str: string) {
     return decodeURIComponent(escape(atob(str)))
   }
 }
+
+export function formatDate(dateString: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  try {
+    const date = new Date(dateString);
+    // Default options for Turkish locale DD.MM.YYYY format
+    const defaultOptions: Intl.DateTimeFormatOptions = {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    };
+    return new Intl.DateTimeFormat('tr-TR', { ...defaultOptions, ...options }).format(date);
+  } catch (error) {
+    console.error("Error formatting date:", dateString, error);
+    return String(dateString); // Fallback to original string on error
+  }
+}

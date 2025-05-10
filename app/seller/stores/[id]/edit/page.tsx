@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
@@ -24,14 +24,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-export default function EditStorePage({ params }: { params: { id: string } }) {
+export default function EditStorePage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = use(paramsPromise)
+  const { id } = params
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [store, setStore] = useState<any>(null)
   const supabase = createClientComponentClient()
   const router = useRouter()
-  const { id } = params
 
   useEffect(() => {
     fetchStoreDetails()
@@ -295,7 +297,7 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
                     alt="Logo önizleme"
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=80&width=80"
+                      ; (e.target as HTMLImageElement).src = "/placeholder.svg?height=80&width=80"
                     }}
                   />
                 </div>
@@ -316,7 +318,7 @@ export default function EditStorePage({ params }: { params: { id: string } }) {
                     alt="Banner önizleme"
                     className="h-full w-full object-cover"
                     onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=160&width=640"
+                      ; (e.target as HTMLImageElement).src = "/placeholder.svg?height=160&width=640"
                     }}
                   />
                 </div>

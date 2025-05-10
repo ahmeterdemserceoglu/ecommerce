@@ -16,11 +16,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Search, ShoppingCart, Heart, User, Menu, Store, LogOut, Settings, Package, ChevronDown } from "lucide-react"
+import { Search, ShoppingCart, Heart, User, Menu, Store, LogOut, Settings, Package, ChevronDown, Ticket } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { CartContext } from "@/providers/cart-provider"
+import { CategoryNav } from "@/components/home/category-nav"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 export default function Header() {
   const pathname = usePathname()
@@ -33,6 +35,9 @@ export default function Header() {
   const [isMobile, setIsMobile] = useState(false)
   const supabase = createClientComponentClient()
   const { toast } = useToast()
+  const [couponDialogOpen, setCouponDialogOpen] = useState(false)
+  const [couponInput, setCouponInput] = useState("")
+  const [couponStatus, setCouponStatus] = useState<string | null>(null)
 
   // Check if mobile
   useEffect(() => {
@@ -104,7 +109,53 @@ export default function Header() {
     e.preventDefault()
     await signOut()
     router.push("/")
+    router.refresh()
     toast({ title: "Çıkış yapılıyor...", description: "Güle güle!" })
+  }
+
+  // Kuponu hesaba ekle
+  const handleAddCoupon = async () => {
+    setCouponStatus(null)
+    if (!couponInput.trim()) {
+      setCouponStatus("Lütfen bir kupon kodu girin.")
+      return
+    }
+    try {
+      // Kuponu bul
+      const { data: coupon, error: couponError } = await supabase
+        .from("coupons")
+        .select("id, code, is_active")
+        .eq("code", couponInput.trim().toUpperCase())
+        .eq("is_active", true)
+        .maybeSingle()
+      if (couponError || !coupon) {
+        setCouponStatus("Geçersiz veya aktif olmayan kupon kodu.")
+        return
+      }
+      // Kullanıcıya daha önce eklenmiş mi?
+      const { data: userCoupon, error: userCouponError } = await supabase
+        .from("user_coupons")
+        .select("id")
+        .eq("user_id", user?.id)
+        .eq("coupon_id", coupon.id)
+        .maybeSingle()
+      if (userCoupon) {
+        setCouponStatus("Bu kupon zaten hesabınıza eklenmiş.")
+        return
+      }
+      // Hesaba ekle
+      const { error: insertError } = await supabase
+        .from("user_coupons")
+        .insert({ user_id: user.id, coupon_id: coupon.id })
+      if (insertError) {
+        setCouponStatus("Kupon eklenirken bir hata oluştu.")
+        return
+      }
+      setCouponStatus("Kupon başarıyla hesabınıza eklendi!")
+      setCouponInput("")
+    } catch (err) {
+      setCouponStatus("Bir hata oluştu. Lütfen tekrar deneyin.")
+    }
   }
 
   return (
@@ -252,7 +303,10 @@ export default function Header() {
                     variant="ghost"
                     size={isMobile ? "icon" : "default"}
                     className="gap-2"
-                    onClick={(e) => e.preventDefault()} // Prevent default to avoid navigation
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCouponDialogOpen(true);
+                    }}
                   >
                     <User className="h-5 w-5" />
                     {!isMobile && (
@@ -294,6 +348,10 @@ export default function Header() {
                       </Link>
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onClick={() => router.push("/hesabim/kuponlarim")}>
+                    <Ticket className="mr-2 h-4 w-4" />
+                    Kuponlarım
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -332,6 +390,34 @@ export default function Header() {
           </Button>
         </form>
       </div>
+
+      {/* Kupon Dialog */}
+      <Dialog open={couponDialogOpen} onOpenChange={setCouponDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kupon Kodu Ekle</DialogTitle>
+            <DialogDescription>Hesabınıza bir kupon kodu ekleyin. Eklediğiniz kuponu ödeme sırasında kullanabilirsiniz.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <Input
+              placeholder="Kupon kodu girin"
+              value={couponInput}
+              onChange={e => {
+                setCouponInput(e.target.value.toUpperCase());
+                setCouponStatus(null);
+              }}
+              onKeyDown={e => { if (e.key === "Enter") handleAddCoupon(); }}
+            />
+            {couponStatus && (
+              <div className={`text-sm ${couponStatus.includes("başarı") ? "text-green-600" : "text-red-600"}`}>{couponStatus}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAddCoupon} className="bg-orange-500 hover:bg-orange-600">Kuponu Ekle</Button>
+            <Button variant="outline" onClick={() => setCouponDialogOpen(false)}>Kapat</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }

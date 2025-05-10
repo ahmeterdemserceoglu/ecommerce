@@ -75,6 +75,7 @@ type DashboardData = {
   salesGrowth: number
   salesByDay: { date: string; amount: number }[]
   pendingApprovals: number
+  rejectedProducts: number
   lowStockVariants: any[]
 }
 
@@ -109,6 +110,7 @@ export default function SellerDashboard() {
     salesGrowth: 0,
     salesByDay: [],
     pendingApprovals: 0,
+    rejectedProducts: 0,
     lowStockVariants: [],
   })
   const supabase = createClientComponentClient()
@@ -133,6 +135,8 @@ export default function SellerDashboard() {
         .from("products")
         .select("id", { count: "exact", head: true })
         .eq("store_id", storeId)
+        .eq("is_active", true)
+        .eq("is_approved", true)
 
       // Onay bekleyen ürünler (is_approved IS NULL)
       const { count: pendingCount } = await supabase
@@ -140,6 +144,13 @@ export default function SellerDashboard() {
         .select("id", { count: "exact", head: true })
         .eq("store_id", storeId)
         .is("is_approved", null)
+
+      // Reddedilen ürünler (is_approved = false)
+      const { count: rejectedCount } = await supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("store_id", storeId)
+        .eq("is_approved", false)
 
       // Son siparişler
       const { data: recentOrdersData } = await supabase
@@ -310,6 +321,7 @@ export default function SellerDashboard() {
         salesGrowth,
         salesByDay,
         pendingApprovals: pendingCount || 0,
+        rejectedProducts: rejectedCount || 0,
         lowStockVariants,
       })
     } catch (error) {
@@ -391,11 +403,10 @@ export default function SellerDashboard() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                    pathname === item.href
-                      ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${pathname === item.href
+                    ? "bg-gray-100 dark:bg-gray-700 text-primary"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <item.icon className="h-5 w-5 mr-3" />
@@ -504,6 +515,22 @@ export default function SellerDashboard() {
             </Card>
           )}
 
+          {dashboardData.rejectedProducts > 0 && (
+            <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-900/20">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                  <p className="text-red-800 dark:text-red-200">
+                    {dashboardData.rejectedProducts} ürününüz reddedildi. Düzenleyip tekrar onaya gönderebilirsiniz.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/seller/products?filter=rejected">Görüntüle</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Ana İstatistikler */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <StatsCard
@@ -524,7 +551,7 @@ export default function SellerDashboard() {
               title="Ürünler"
               value={dashboardData.totalProducts.toString()}
               icon={<Package className="w-8 h-8 text-purple-500" />}
-              description="Aktif ürün sayısı"
+              description="Aktif ve onaylı ürün sayısı"
               trend={undefined}
             />
             <StatsCard

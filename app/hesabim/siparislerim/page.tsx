@@ -191,6 +191,11 @@ export default function OrdersPage() {
   // Aktif sekmeyi state olarak tut
   const [activeTab, setActiveTab] = useState("all")
 
+  // Siparişin ödenebilir olup olmadığını kontrol eden yardımcı fonksiyon
+  const isOrderPayable = (order: any) => {
+    return order.status === "pending" || order.payment_status === "pending";
+  };
+
   if (loading || authLoading) {
     return (
       <div className="container max-w-6xl py-8">
@@ -287,16 +292,23 @@ export default function OrdersPage() {
                           )}
                         </div>
                         <Separator className="my-3" />
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-2 flex-wrap">
                           <Button variant="link" className="p-0 h-auto" asChild>
                             <Link href={`/hesabim/siparislerim/${order.id}`}>
                               Sipariş Detayları
                               <ChevronRight className="h-4 w-4 ml-1" />
                             </Link>
                           </Button>
-                          <Button variant="outline" size="sm">
-                            Yardım Al
-                          </Button>
+                          <div className="flex gap-2">
+                            {isOrderPayable(order) && (
+                              <Button variant="default" size="sm" onClick={() => router.push(`/odeme?siparis=${order.id}`)}>
+                                Ödeme Yap
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm">
+                              Yardım Al
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -363,16 +375,23 @@ export default function OrdersPage() {
                           )}
                         </div>
                         <Separator className="my-3" />
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-2 flex-wrap">
                           <Button variant="link" className="p-0 h-auto" asChild>
                             <Link href={`/hesabim/siparislerim/${order.id}`}>
                               Sipariş Detayları
                               <ChevronRight className="h-4 w-4 ml-1" />
                             </Link>
                           </Button>
-                          <Button variant="outline" size="sm">
-                            Yardım Al
-                          </Button>
+                          <div className="flex gap-2">
+                            {isOrderPayable(order) && (
+                              <Button variant="default" size="sm" onClick={() => router.push(`/odeme?siparis=${order.id}`)}>
+                                Ödeme Yap
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm">
+                              Yardım Al
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

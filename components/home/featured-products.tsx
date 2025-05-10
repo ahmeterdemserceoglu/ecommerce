@@ -5,12 +5,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/utils"
 import { ProductCardImage } from "@/components/ProductCardImage"
+import { processProductData } from "@/lib/product-utils"
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   stores: {
     id: string
     name: string
   }
+  product_variants?: {
+    id: string;
+    price: number | null;
+    discount_price?: number | null;
+    is_default?: boolean | null;
+  }[];
 }
 
 interface FeaturedProductsProps {
@@ -29,8 +36,10 @@ export function FeaturedProducts({ products }: FeaturedProductsProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {products.map((product) => {
-          const discountPercentage = product.discount_price
-            ? Math.round(((product.price - product.discount_price) / product.price) * 100)
+          // Make sure product pricing is handled correctly if it has variants
+          const processedProduct = processProductData(product);
+          const discountPercentage = processedProduct.discount_price
+            ? Math.round(((processedProduct.price - processedProduct.discount_price) / processedProduct.price) * 100)
             : 0
 
           return (
@@ -49,10 +58,10 @@ export function FeaturedProducts({ products }: FeaturedProductsProps) {
                     <h3 className="font-medium line-clamp-2 group-hover:text-primary">{product.name}</h3>
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-bold text-primary">
-                        {formatPrice(product.discount_price || product.price)}
+                        {formatPrice(processedProduct.discount_price || processedProduct.price)}
                       </span>
-                      {product.discount_price && (
-                        <span className="text-sm text-muted-foreground line-through">{formatPrice(product.price)}</span>
+                      {processedProduct.discount_price && (
+                        <span className="text-sm text-muted-foreground line-through">{formatPrice(processedProduct.price)}</span>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{product.stores.name}</p>

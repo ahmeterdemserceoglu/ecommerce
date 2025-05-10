@@ -56,6 +56,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import AdminLayout from "@/components/admin/AdminLayout"
 
 export default function CategoriesPage() {
   const router = useRouter()
@@ -394,87 +395,8 @@ export default function CategoriesPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Admin Panel</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="px-2 space-y-1">
-            {sidebarItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                  router.pathname === item.href
-                    ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                {item.icon}
-                <span className="ml-3">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Çıkış Yap
-          </Button>
-        </div>
-      </div>
-
-      {/* Mobile Sidebar */}
-      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetContent side="left" className="p-0 w-64">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto py-4">
-            <nav className="px-2 space-y-1">
-              {sidebarItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                    router.pathname === item.href
-                      ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.label}</span>
-                </a>
-              ))}
-            </nav>
-          </div>
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                signOut()
-                setIsMobileMenuOpen(false)
-              }}
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Çıkış Yap
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Main Content */}
+    <AdminLayout>
+      {/* --- Main Content --- */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <div className="md:hidden bg-white dark:bg-gray-800 border-b p-4 flex items-center justify-between">
@@ -482,10 +404,9 @@ export default function CategoriesPage() {
             <Menu className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-bold">Kategoriler</h1>
-          <div className="w-6"></div> {/* Spacer for alignment */}
+          <div className="w-6"></div> {/* Spacer */}
         </div>
-
-        {/* Content */}
+        {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-6">
@@ -623,9 +544,8 @@ export default function CategoriesPage() {
                           <TableCell>{category.sort_order}</TableCell>
                           <TableCell>
                             <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                category.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                              }`}
+                              className={`px-2 py-1 rounded-full text-xs ${category.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                }`}
                             >
                               {category.is_active ? "Aktif" : "Pasif"}
                             </span>
@@ -689,106 +609,7 @@ export default function CategoriesPage() {
           </div>
         </main>
       </div>
-
-      {/* Edit Category Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Kategori Düzenle</DialogTitle>
-            <DialogDescription>Kategori bilgilerini düzenlemek için aşağıdaki formu kullanın.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">
-                Kategori Adı
-              </Label>
-              <Input
-                id="edit-name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-slug" className="text-right">
-                Slug
-              </Label>
-              <Input
-                id="edit-slug"
-                name="slug"
-                value={formData.slug}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-description" className="text-right">
-                Açıklama
-              </Label>
-              <Textarea
-                id="edit-description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-parentId" className="text-right">
-                Üst Kategori
-              </Label>
-              <Select value={formData.parentId} onValueChange={(value) => handleSelectChange("parentId", value)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Üst kategori seçin (opsiyonel)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Ana Kategori</SelectItem>
-                  {parentCategories
-                    .filter((category) => category.id !== selectedCategory?.id)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-icon" className="text-right">
-                İkon
-              </Label>
-              <Input
-                id="edit-icon"
-                name="icon"
-                value={formData.icon}
-                onChange={handleInputChange}
-                className="col-span-3"
-                placeholder="İkon adı (opsiyonel)"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-sortOrder" className="text-right">
-                Sıralama
-              </Label>
-              <Input
-                id="edit-sortOrder"
-                name="sortOrder"
-                type="number"
-                value={formData.sortOrder}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              İptal
-            </Button>
-            <Button onClick={handleUpdateCategory}>Güncelle</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      {/* Dialogs and modals here if needed */}
+    </AdminLayout>
   )
 }

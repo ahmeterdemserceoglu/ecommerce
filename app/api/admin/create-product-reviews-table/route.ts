@@ -1,12 +1,46 @@
 import { createClient } from "@supabase/supabase-js"
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+// const supabaseAnon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!); // Not needed directly if using service role for RPC
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const cookieStore = cookies()
+  const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore })
+
+  // Admin authorization check
+  const { data: { session }, error: sessionError } = await supabaseAuth.auth.getSession()
+  if (sessionError) {
+    console.error("[API /api/admin/create-product-reviews-table POST] Error getting session:", sessionError.message)
+    return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
+  }
+  if (!session) {
+    console.log("[API /api/admin/create-product-reviews-table POST] No session found.")
+    return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+  }
+  const { data: userProfile, error: profileError } = await supabaseAuth
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single()
+  if (profileError) {
+    console.error(`[API /api/admin/create-product-reviews-table POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+    return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
+  }
+  if (!userProfile || userProfile.role !== 'admin') {
+    console.warn(`[API /api/admin/create-product-reviews-table POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+    return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+  }
+  console.log(`[API /api/admin/create-product-reviews-table POST] Admin user ${session.user.id} authorized.`)
+  // End admin authorization check
+
+  // Initialize Supabase client with SERVICE_ROLE_KEY for DDL operations
+  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
   try {
     // Ürün değerlendirme tablosu
-    const { error: reviewsError } = await supabase.rpc("create_product_reviews_table", {
+    const { error: reviewsError } = await supabaseAdmin.rpc("create_product_reviews_table", {
       sql: `
         create table if not exists product_reviews (
           id uuid default uuid_generate_v4() primary key,

@@ -2,8 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Modern global styles and color palette */
+:root {
+  --color-bg: #f7f8fa;
+  --color-bg-dark: #18181b;
+  --color-primary: #2563eb;
+  --color-primary-dark: #60a5fa;
+  --color-secondary: #f59e42;
+  --color-accent: #10b981;
+  --color-text: #22223b;
+  --color-text-light: #f7f8fa;
+  --color-border: #e5e7eb;
+  --color-card: #fff;
+  --color-card-dark: #23232b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #18181b;
+    --color-primary: #60a5fa;
+    --color-secondary: #fbbf24;
+    --color-accent: #34d399;
+    --color-text: #f7f8fa;
+    --color-border: #23232b;
+    --color-card: #23232b;
+  }
+}
+
+html,
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-size: 16px;
+  line-height: 1.6;
+  transition: background 0.2s, color 0.2s;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-top: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+button {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.6em 1.2em;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.07);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+
+button:hover,
+button:focus {
+  background: var(--color-primary-dark);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12);
+}
+
+.card {
+  background: var(--color-card);
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  padding: 2rem;
+  border: 1px solid var(--color-border);
+  transition: box-shadow 0.2s, background 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.10);
+  background: var(--color-card-dark);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 8px;
 }
 
 @layer utilities {
@@ -48,6 +151,7 @@ body {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -88,6 +192,7 @@ body {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }

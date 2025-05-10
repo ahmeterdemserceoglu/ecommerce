@@ -1,38 +1,50 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import fs from "fs"
 import path from "path"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Kullanıcı yetkisini kontrol et
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const cookieStore = cookies()
+    const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    if (!user) {
-      return NextResponse.json({ error: "Oturum açmanız gerekiyor" }, { status: 401 })
+    // Standardized Admin authorization check
+    const { data: { session }, error: sessionError } = await supabaseAuth.auth.getSession()
+    if (sessionError) {
+      console.error("[API /api/admin/fix-orders-table POST] Error getting session:", sessionError.message)
+      return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
     }
-
-    // Kullanıcının admin olup olmadığını kontrol et
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", user.id)
+    if (!session) {
+      console.log("[API /api/admin/fix-orders-table POST] No session found.")
+      return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+    }
+    const { data: userProfile, error: profileError } = await supabaseAuth
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
       .single()
-
-    if (profileError || profile?.role !== "admin") {
-      return NextResponse.json({ error: "Bu işlem için admin yetkisi gerekiyor" }, { status: 403 })
+    if (profileError) {
+      console.error(`[API /api/admin/fix-orders-table POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+      return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
     }
+    if (!userProfile || userProfile.role !== 'admin') {
+      console.warn(`[API /api/admin/fix-orders-table POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+    }
+    console.log(`[API /api/admin/fix-orders-table POST] Admin user ${session.user.id} authorized.`)
+    // End standardized admin authorization check
 
     // SQL dosyasını oku
     const sqlPath = path.join(process.cwd(), "lib/database/fix-orders-table.sql")
     const sql = fs.readFileSync(sqlPath, "utf8")
 
+    // Initialize Supabase client with SERVICE_ROLE_KEY for exec_sql RPC
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
     // SQL'i çalıştır
-    const { data, error } = await supabase.rpc("exec_sql", { sql })
+    const { data, error } = await supabaseAdmin.rpc("exec_sql", { sql })
 
     if (error) {
       console.error("SQL çalıştırma hatası:", error)
@@ -47,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     // Orders tablosunun yapısını kontrol et
-    const { data: structure, error: structureError } = await supabase.rpc("get_table_structure", {
+    const { data: structure, error: structureError } = await supabaseAuth.rpc("get_table_structure", {
       table_name: "orders",
     })
 
@@ -74,28 +86,36 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Kullanıcı yetkisini kontrol et
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    if (!user) {
-      return NextResponse.json({ error: "Oturum açmanız gerekiyor" }, { status: 401 })
+    // Standardized Admin authorization check
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      console.error("[API /api/admin/fix-orders-table GET] Error getting session:", sessionError.message)
+      return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
     }
-
-    // Kullanıcının admin olup olmadığını kontrol et
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", user.id)
+    if (!session) {
+      console.log("[API /api/admin/fix-orders-table GET] No session found.")
+      return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+    }
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
       .single()
-
-    if (profileError || profile?.role !== "admin") {
-      return NextResponse.json({ error: "Bu işlem için admin yetkisi gerekiyor" }, { status: 403 })
+    if (profileError) {
+      console.error(`[API /api/admin/fix-orders-table GET] Error fetching profile for user ${session.user.id}:`, profileError.message)
+      return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
     }
+    if (!userProfile || userProfile.role !== 'admin') {
+      console.warn(`[API /api/admin/fix-orders-table GET] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+    }
+    console.log(`[API /api/admin/fix-orders-table GET] Admin user ${session.user.id} authorized.`)
+    // End standardized admin authorization check
 
     // Orders tablosunun varlığını kontrol et
     const { data: exists, error: existsError } = await supabase.rpc("check_table_exists", {

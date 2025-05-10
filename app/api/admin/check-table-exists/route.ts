@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { tableName } = await request.json()
 
@@ -10,24 +10,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Table name is required" }, { status: 400 })
     }
 
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Check if the user is authenticated and is an admin
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Standardized Admin authorization check
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      console.error("[API /api/admin/check-table-exists POST] Error getting session:", sessionError.message)
+      return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
     }
-
-    // Check if the user is an admin
-    const { data: userData, error: userError } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-    if (userError || !userData || userData.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      console.log("[API /api/admin/check-table-exists POST] No session found.")
+      return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
     }
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+    if (profileError) {
+      console.error(`[API /api/admin/check-table-exists POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+      return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
+    }
+    if (!userProfile || userProfile.role !== 'admin') {
+      console.warn(`[API /api/admin/check-table-exists POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+      return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+    }
+    console.log(`[API /api/admin/check-table-exists POST] Admin user ${session.user.id} authorized for table: ${tableName}.`)
+    // End standardized admin authorization check
 
     // Check if the table exists
     const { data, error } = await supabase.rpc("check_table_exists", {

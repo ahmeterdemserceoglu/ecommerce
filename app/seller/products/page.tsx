@@ -18,12 +18,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Menu, X, LogOut, Search, Plus, Edit, Trash2 } from "lucide-react"
 import { getSignedImageUrl } from "@/lib/get-signed-url"
 
+type ProductVariant = {
+  id?: string;
+  price: number | null;
+  discount_price: number | null;
+  is_default: boolean;
+};
+
 type Product = {
   id: string
   name: string
   description?: string
-  price: number
-  stock_quantity: number
+  price: number | null;
+  discount_price?: number | null;
+  stock_quantity: number | null;
   is_active: boolean
   store_id: string
   category_id?: string
@@ -34,7 +42,8 @@ type Product = {
   created_at: string
   updated_at?: string
   has_variants: boolean
-  hide: boolean
+  hide?: boolean;
+  product_variants?: ProductVariant[];
 }
 
 type Category = {
@@ -110,9 +119,7 @@ export default function ProductsPage() {
   }, [storeId])
 
   useEffect(() => {
-    // Filter products based on search term, category filter, status filter, and current tab
     let result = [...products]
-
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       result = result.filter(
@@ -127,15 +134,18 @@ export default function ProductsPage() {
     } else {
       result = result.filter((product) => product && product.id && product.is_active !== false && !product.hide)
     }
-
     if (categoryFilter !== "all") {
       result = result.filter((product) => product.category_id === categoryFilter)
     }
-
     if (statusFilter !== "all") {
-      result = result.filter((product) => product.approval_status === statusFilter)
+      if (statusFilter === 'approved') {
+        result = result.filter(p => p.is_approved === true);
+      } else if (statusFilter === 'pending') {
+        result = result.filter(p => p.is_approved === null || p.is_approved === undefined);
+      } else if (statusFilter === 'rejected') {
+        result = result.filter(p => p.is_approved === false);
+      }
     }
-
     if (currentTab !== "all") {
       if (currentTab === "active") {
         result = result.filter((product) => product.is_active)
@@ -143,7 +153,6 @@ export default function ProductsPage() {
         result = result.filter((product) => !product.is_active)
       }
     }
-
     setFilteredProducts(result)
   }, [products, searchTerm, categoryFilter, statusFilter, currentTab])
 
@@ -152,8 +161,6 @@ export default function ProductsPage() {
       if (!user || !user.id) {
         throw new Error("Kullanıcı bilgisi alınamadı")
       }
-
-      // Try with regular client first
       const { data: storeData, error: storeError } = await supabase
         .from("stores")
         .select("id")
@@ -161,7 +168,6 @@ export default function ProductsPage() {
         .maybeSingle()
 
       if (storeError) {
-        // Eğer public client ile hata alınırsa kullanıcıya bilgi ver
         toast({
           title: "Bilgi",
           description: "Mağaza bulunamadı. Lütfen önce mağaza oluşturun.",
@@ -170,7 +176,6 @@ export default function ProductsPage() {
         router.push("/seller/settings")
         return
       }
-
       if (!storeData) {
         toast({
           title: "Bilgi",
@@ -180,7 +185,6 @@ export default function ProductsPage() {
         router.push("/seller/settings")
         return
       }
-
       setStoreId(storeData.id)
     } catch (error: any) {
       console.error("Error fetching store ID:", error)
@@ -195,25 +199,55 @@ export default function ProductsPage() {
   async function fetchProducts() {
     setLoading(true)
     try {
-      // Try with regular client first
+      if (!storeId) return;
+
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("*, has_variants")
+        .select(`
+          id,
+          name,
+          description,
+          price,
+          discount_price,
+          stock_quantity,
+          is_active,
+          store_id,
+          category_id,
+          image_url,
+          is_approved,
+          reject_reason,
+          created_at,
+          updated_at,
+          has_variants,
+          product_variants (id, price, discount_price, is_default)
+        `)
         .eq("store_id", storeId)
         .order("created_at", { ascending: false })
 
       if (productsError) {
-        // Eğer public client ile hata alınırsa kullanıcıya bilgi ver
-        toast({
-          title: "Hata",
-          description: "Ürünler yüklenirken bir hata oluştu: " + productsError.message,
-          variant: "destructive",
-        })
-        setLoading(false)
-        return
+        throw productsError;
       }
 
-      setProducts(productsData || [])
+      const processedProducts = productsData?.map((product: any) => {
+        let displayPrice = product.price;
+        let displayDiscountPrice = product.discount_price;
+
+        if (product.has_variants && product.product_variants && product.product_variants.length > 0) {
+          const defaultVariant = product.product_variants.find((variant: ProductVariant) => variant.is_default);
+          if (defaultVariant && typeof defaultVariant.price === 'number') {
+            displayPrice = defaultVariant.price;
+            displayDiscountPrice = typeof defaultVariant.discount_price === 'number' ? defaultVariant.discount_price : null;
+          }
+        }
+        return {
+          ...product,
+          price: displayPrice,
+          discount_price: displayDiscountPrice,
+        };
+      }) || [];
+
+      setProducts(processedProducts as Product[])
+
     } catch (error: any) {
       console.error("Error fetching products:", error)
       toast({
@@ -221,6 +255,7 @@ export default function ProductsPage() {
         description: "Ürünler yüklenirken bir hata oluştu: " + error.message,
         variant: "destructive",
       })
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -243,90 +278,56 @@ export default function ProductsPage() {
   }
 
   function handleEditProduct(product: Product) {
-    // Navigate to the edit page
     router.push(`/seller/products/${product.id}/edit`)
   }
 
   function handleDeleteProduct(product: Product) {
     setSelectedProduct(product)
+    setDeleteLoading(false);
     setDeleteDialogOpen(true)
   }
 
   async function handleConfirmDelete() {
-    console.log("Silme fonksiyonu tetiklendi, selectedProduct:", selectedProduct)
+    if (!selectedProduct) return
     setDeleteLoading(true)
-    if (!selectedProduct) {
-      setDeleteLoading(false)
-      return
-    }
     try {
-      // 1. Policy kontrolü: Kullanıcı bu ürünü görebiliyor mu?
-      const { data: canSee, error: seeError } = await supabase
-        .from("products")
-        .select("id")
-        .eq("id", selectedProduct.id)
-        .single()
+      const response = await fetch(`/api/products/${selectedProduct.id}`, {
+        method: "DELETE",
+      })
 
-      if (seeError || !canSee) {
-        toast({
-          title: "İzin Hatası",
-          description: "Bu ürünü silmek için yetkiniz yok veya ürün bulunamadı.",
-          variant: "destructive",
-        })
-        return
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Ürün silinirken bir hata oluştu.")
       }
 
-      // 2. Bağlantılı kayıt kontrolü (örnek: product_images)
-      const { count: imageCount, error: imageError } = await supabase
-        .from("product_images")
-        .select("id", { count: "exact", head: true })
-        .eq("product_id", selectedProduct.id)
+      // Update the product list to reflect the change (mark as inactive and hide it)
+      setProducts((prevProducts) =>
+        prevProducts.map((p) =>
+          p.id === selectedProduct.id ? { ...p, is_active: false, hide: true } : p
+        )
+      )
 
-      if (imageError) {
-        toast({
-          title: "Bağlantı Hatası",
-          description: "Ürün görselleri kontrol edilirken hata oluştu.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // 3. Silme işlemi
-      const { error } = await supabase.from("products").delete().eq("id", selectedProduct.id)
-
-      if (error) {
-        // Policy veya constraint hatası olabilir
-        let extraMsg = ""
-        if (imageCount && imageCount > 0) {
-          extraMsg += `Bu ürüne bağlı ${imageCount} görsel var. Önce görselleri silmelisiniz. `
-        }
-        toast({
-          title: "Silme Hatası",
-          description:
-            error.message ||
-            extraMsg ||
-            "Ürün silinirken bir hata oluştu. (Muhtemelen izin/policy veya bağlantılı kayıt engeli)",
-          variant: "destructive",
-        })
-        return
-      }
+      // Also directly update the filtered products to immediately hide the deleted product
+      setFilteredProducts((prevFiltered) =>
+        prevFiltered.filter((p) => p.id !== selectedProduct.id)
+      )
 
       toast({
         title: "Başarılı",
-        description: "Ürün silindi.",
+        description: `"${selectedProduct.name}" adlı ürün başarıyla devre dışı bırakıldı.`,
+        variant: "success",
       })
-
-      setDeleteDialogOpen(false)
-      fetchProducts()
     } catch (error: any) {
-      console.error("Error deleting product:", error)
+      console.error("Error deactivating product:", error)
       toast({
         title: "Hata",
-        description: error?.message || JSON.stringify(error) || "Ürün silinirken bir hata oluştu.",
+        description: error.message || "Ürün devre dışı bırakılırken bir hata oluştu.",
         variant: "destructive",
       })
     } finally {
       setDeleteLoading(false)
+      setDeleteDialogOpen(false)
+      setSelectedProduct(null)
     }
   }
 
@@ -356,11 +357,12 @@ export default function ProductsPage() {
     )
   }
 
+  console.log("Rendering ProductsPage, deleteLoading state:", deleteLoading);
+
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
       <SellerSidebar />
 
-      {/* Mobile Sidebar */}
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent side="left" className="p-0 w-64">
           <div className="p-4 border-b flex items-center justify-between">
@@ -389,13 +391,12 @@ export default function ProductsPage() {
       </Sheet>
 
       <div className="flex-1 p-6 overflow-y-auto">
-        {/* Mobile Header */}
         <div className="md:hidden bg-white dark:bg-gray-800 border-b p-4 flex items-center justify-between mb-6">
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
             <Menu className="h-6 w-6" />
           </Button>
           <h1 className="text-xl font-bold">Ürünlerim</h1>
-          <div className="w-6"></div> {/* Spacer for alignment */}
+          <div className="w-6"></div>
         </div>
 
         <div className="max-w-7xl mx-auto">
@@ -405,7 +406,6 @@ export default function ProductsPage() {
               <p className="text-gray-500 dark:text-gray-400">Mağazanızdaki ürünleri yönetin</p>
             </div>
             <div className="mt-4 md:mt-0">
-              {/* Changed to Link component to navigate to the new product page */}
               <Button asChild>
                 <Link href="/seller/products/new" className="flex items-center">
                   <Plus className="mr-2 h-4 w-4" />
@@ -498,7 +498,7 @@ export default function ProductsPage() {
                               <TableCell>
                                 <div className="flex items-center gap-3">
                                   <ProductImageCell
-                                    imagePath={product.image_url}
+                                    imagePath={product.image_url || ""}
                                     alt={product.name}
                                     onImageError={() => {
                                       setProducts((prev) =>
@@ -509,20 +509,23 @@ export default function ProductsPage() {
                                   <div>
                                     <div className="font-medium">{product.name}</div>
                                     {product.description && (
-                                      <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                        {product.description}
-                                      </div>
+                                      <div
+                                        className="text-sm text-gray-500 truncate max-w-[200px]"
+                                        dangerouslySetInnerHTML={{ __html: product.description }}
+                                      />
                                     )}
                                   </div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                {product.price.toLocaleString("tr-TR", {
-                                  style: "currency",
-                                  currency: "TRY",
-                                })}
+                                {typeof product.price === 'number'
+                                  ? product.price.toLocaleString("tr-TR", {
+                                    style: "currency",
+                                    currency: "TRY",
+                                  })
+                                  : "-"}
                               </TableCell>
-                              <TableCell>{product.has_variants ? "Varyantlı" : product.stock_quantity}</TableCell>
+                              <TableCell>{product.has_variants ? "Varyantlı" : (product.stock_quantity ?? '-')}</TableCell>
                               <TableCell>{categories.find((c) => c.id === product.category_id)?.name || "-"}</TableCell>
                               <TableCell>
                                 {product.is_active ? (
@@ -606,7 +609,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Ürün Silme Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -623,8 +625,10 @@ export default function ProductsPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                console.log("Sil butonuna tıklandı")
-                handleConfirmDelete()
+                console.log("Sil butonuna tıklandı, current deleteLoading:", deleteLoading);
+                if (!deleteLoading) {
+                  handleConfirmDelete()
+                }
               }}
               disabled={deleteLoading}
             >
@@ -636,3 +640,4 @@ export default function ProductsPage() {
     </div>
   )
 }
+

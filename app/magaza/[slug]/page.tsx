@@ -24,6 +24,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { getSignedImageUrlForAny } from "@/lib/get-signed-url"
+import type { Database } from "@/types/supabase"
 
 export default function StorePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = React.use(params)
@@ -31,12 +32,24 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
-  const [store, setStore] = useState<any>(null)
+  const [store, setStore] = useState<
+    | (Database["public"]["Tables"]["stores"]["Row"] & {
+      category: Database["public"]["Tables"]["categories"]["Row"] | null
+      owner: { full_name: string | null; email: string | null } | null
+      // Manually adding potentially missing or differently named fields to satisfy UI
+      product_count?: number
+      phone?: string | null // UI uses store.phone, schema has contact_phone
+      email?: string | null // UI uses store.email, schema has contact_email
+      website?: string | null
+      opening_hours?: any | null // Type as any for now if structure is complex/unknown
+      owner_id?: string | null // Explicitly add if base Row type is missing it
+      // follower_count removed as the feature is being removed
+    })
+    | null
+  >(null)
   const [products, setProducts] = useState<any[]>([])
-  const [reviews, setReviews] = useState<any[]>([])
-  const [isFollowing, setIsFollowing] = useState(false)
+  const [reviews, setReviews] = useState<Array<Database["public"]["Tables"]["store_reviews"]["Row"] & { user: { full_name: string | null, email: string | null } | null }>>([])
   const [loading, setLoading] = useState(true)
-  const [followLoading, setFollowLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOption, setSortOption] = useState("newest")
   const [currentPage, setCurrentPage] = useState(1)
@@ -44,13 +57,14 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
   const productsPerPage = 20
   const [showReviewDialog, setShowReviewDialog] = useState(false)
   const [rating, setRating] = useState(0)
-  const [hoverRating, setHoverRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState<number | null>(0)
   const [comment, setComment] = useState("")
-  const [reviewRating, setReviewRating] = useState(0)
 
   useEffect(() => {
     const fetchStore = async () => {
       setLoading(true)
+      let currentStore: Database["public"]["Tables"]["stores"]["Row"] & { category: Database["public"]["Tables"]["categories"]["Row"] | null, owner: { full_name: string | null, email: string | null } | null } | null = null;
+
       try {
         // Fetch store data
         const { data: storeData, error: storeError } = await supabase
@@ -58,23 +72,23 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           .select(`
             *,
             category:categories(name),
-            owner:profiles(full_name, email)
+            owner:profiles!stores_owner_id_fkey(full_name, email)
           `)
-          .eq("slug", slug)
+          .eq("slug", slug as string)
           .single()
 
         if (storeError) {
           console.error("Mağaza yüklenirken hata:", storeError.message)
           // Try to fetch by ID if slug might be an ID
-          if (slug && !isNaN(Number.parseInt(slug))) {
+          if (slug && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(slug)) {
             const { data: storeById, error: storeByIdError } = await supabase
               .from("stores")
               .select(`
                 *,
                 category:categories(name),
-                owner:profiles(full_name, email)
+                owner:profiles!stores_owner_id_fkey(full_name, email)
               `)
-              .eq("id", slug)
+              .eq("id", slug as string)
               .single()
 
             if (storeByIdError) {
@@ -87,14 +101,14 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               setStore(null)
               return
             }
+            currentStore = storeById as any;
 
             // Redirect to proper slug URL if found by ID
-            if (storeById.slug && storeById.slug !== slug) {
-              router.replace(`/magaza/${storeById.slug}`)
+            if (currentStore && currentStore.slug && currentStore.slug !== slug) {
+              router.replace(`/magaza/${currentStore.slug}`)
               return
             }
-
-            setStore(storeById)
+            setStore(currentStore)
           } else {
             setStore(null)
             return
@@ -103,73 +117,64 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           setStore(null)
           return
         } else {
-          setStore(storeData)
-        }
-
-        // Check if user is following the store
-        if (user) {
-          const { data: followData, error: followError } = await supabase
-            .from("store_followers")
-            .select("id")
-            .eq("store_id", storeData.id)
-            .eq("user_id", user.id)
-            .single()
-
-          if (!followError && followData) {
-            setIsFollowing(true)
-          }
+          currentStore = storeData as any;
+          setStore(currentStore)
         }
 
         // Fetch store reviews with user data
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from("store_reviews")
-          .select(`
-            *,
-            user:profiles(full_name, email)
-          `)
-          .eq("store_id", storeData.id)
-          .eq("is_approved", true)
-          .order("created_at", { ascending: false })
-          .limit(5)
+        if (currentStore && currentStore.id) {
+          const { data: reviewsData, error: reviewsError } = await supabase
+            .from("store_reviews")
+            .select(`
+                *,
+                user:profiles(full_name, email)
+            `)
+            .eq("store_id", currentStore.id as string)
+            .order("created_at", { ascending: false })
+            .limit(5)
 
-        if (reviewsError) {
-          console.error("Değerlendirmeler yüklenirken hata:", reviewsError.message)
-          setReviews([])
-        } else {
-          setReviews(reviewsData || [])
+          if (reviewsError) {
+            console.error("Değerlendirmeler yüklenirken hata:", reviewsError.message)
+            setReviews([])
+          } else {
+            setReviews((reviewsData as any[] || []))
+          }
         }
 
         // Fetch store products
-        const { data: productsData, error: productsError } = await supabase
-          .from("products")
-          .select(`*, product_images:product_images(id, url, is_primary, alt_text)`)
-          .eq("store_id", storeData.id)
-          .eq("is_active", true)
-          .eq("is_approved", true)
-          .order("created_at", { ascending: false })
+        if (currentStore && currentStore.id) {
+          const { data: productsData, error: productsError } = await supabase
+            .from("products")
+            .select(`*, product_images:product_images(id, url, is_primary, alt_text)`)
+            .eq("store_id", currentStore.id)
+            .eq("is_active", true as boolean)
+            .eq("is_approved", true as boolean)
+            .order("created_at", { ascending: false })
 
-        if (productsError) {
-          console.error("Ürünler yüklenirken hata:", productsError.message)
-          setProducts([])
-        } else if (productsData) {
-          // Her ürünün images alanındaki url'leri signed url'ye çevir
-          const productsWithSignedImages = await Promise.all(
-            productsData.map(async (product) => {
-              if (product.product_images && product.product_images.length > 0) {
-                const signedImages = await Promise.all(
-                  product.product_images.map(async (img) => {
-                    const signedUrl = await getSignedImageUrlForAny(img.url)
-                    return { ...img, url: signedUrl || img.url }
-                  }),
-                )
-                return { ...product, product_images: signedImages }
-              }
-              return product
-            }),
-          )
-          console.log("Çekilen ürünler:", productsWithSignedImages) // DEBUG
-          setProducts(productsWithSignedImages)
+          if (productsError) {
+            console.error("Ürünler yüklenirken hata:", productsError.message)
+            setProducts([])
+          } else if (productsData) {
+            // Her ürünün images alanındaki url'leri signed url'ye çevir
+            const productsWithSignedImages = await Promise.all(
+              (productsData as any[]).map(async (product: any) => {
+                if (product.product_images && product.product_images.length > 0) {
+                  const signedImages = await Promise.all(
+                    product.product_images.map(async (img: { url: string;[key: string]: any }) => {
+                      const signedUrl = await getSignedImageUrlForAny(img.url)
+                      return { ...img, url: signedUrl || img.url }
+                    }),
+                  )
+                  return { ...product, product_images: signedImages }
+                }
+                return product
+              }),
+            )
+            console.log("Çekilen ürünler:", productsWithSignedImages) // DEBUG
+            setProducts(productsWithSignedImages)
+          }
         }
+
       } catch (error: any) {
         console.error("Mağaza yüklenirken hata:", error.message || error)
         setStore(null)
@@ -181,68 +186,24 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
     fetchStore()
   }, [slug, router, user])
 
-  const handleFollow = async () => {
-    if (!user) {
-      router.push(`/giris?returnTo=/magaza/${slug}`)
-      return
-    }
-
-    setFollowLoading(true)
-    try {
-      if (isFollowing) {
-        // Takibi bırak
-        const { error } = await supabase
-          .from("store_followers")
-          .delete()
-          .eq("store_id", store.id)
-          .eq("user_id", user.id)
-
-        if (error) throw error
-
-        setIsFollowing(false)
-        toast({
-          title: "Takip Bırakıldı",
-          description: `${store.name} mağazasını takip etmeyi bıraktınız.`,
-        })
-      } else {
-        // Takip et
-        const { error } = await supabase.from("store_followers").insert({
-          store_id: store.id,
-          user_id: user.id,
-        })
-
-        if (error) throw error
-
-        setIsFollowing(true)
-        toast({
-          title: "Takip Edildi",
-          description: `${store.name} mağazasını takip etmeye başladınız.`,
-        })
-      }
-    } catch (error) {
-      console.error("Takip işlemi sırasında hata:", error)
-      toast({
-        title: "Hata",
-        description: "Takip işlemi sırasında bir hata oluştu.",
-        variant: "destructive",
-      })
-    } finally {
-      setFollowLoading(false)
-    }
-  }
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    fetchProducts(store.id, 1, sortOption, searchQuery)
+    if (store && store.id) {
+      fetchProducts(store.id, 1, sortOption, searchQuery)
+    }
   }
 
   const handleSortChange = (value: string) => {
     setSortOption(value)
-    fetchProducts(store.id, 1, value, searchQuery)
+    if (store && store.id) {
+      fetchProducts(store.id, 1, value, searchQuery)
+    }
   }
 
   const handlePageChange = (page: number) => {
-    fetchProducts(store.id, page, sortOption, searchQuery)
+    if (store && store.id) {
+      fetchProducts(store.id, page, sortOption, searchQuery)
+    }
   }
 
   const handleReviewSubmit = () => {
@@ -268,9 +229,9 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
         `,
           { count: "exact" },
         )
-        .eq("store_id", storeId)
-        .eq("is_active", true)
-        .eq("is_approved", true)
+        .eq("store_id", storeId as string)
+        .eq("is_active", true as boolean)
+        .eq("is_approved", true as boolean)
 
       // Arama sorgusu varsa filtrele
       if (search) {
@@ -356,7 +317,7 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           <div className="relative w-32 h-32 mx-auto rounded-full border-4 border-orange-100 shadow-lg bg-white overflow-hidden">
             <Image
               src={store.logo_url || "/images/store-logo-placeholder.jpg"}
-              alt={store.name}
+              alt={store.name || "Store logo"}
               fill
               className="object-cover"
               priority
@@ -378,18 +339,17 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               {store.owner?.full_name || "Sahip Yok"}
             </span>
           </div>
-          <p className="mt-2 text-gray-600 dark:text-gray-300 text-base max-w-xl mx-auto line-clamp-2">
-            {store.description || "Açıklama yok."}
-          </p>
+          {store.description ? (
+            <div
+              className="mt-2 text-gray-600 dark:text-gray-300 text-base max-w-xl mx-auto line-clamp-2"
+              dangerouslySetInnerHTML={{ __html: store.description }}
+            />
+          ) : (
+            <p className="mt-2 text-gray-600 dark:text-gray-300 text-base max-w-xl mx-auto line-clamp-2">
+              Açıklama yok.
+            </p>
+          )}
           <div className="flex gap-3 justify-center mt-2">
-            <Button
-              variant={isFollowing ? "secondary" : "default"}
-              onClick={handleFollow}
-              disabled={!user}
-              className="transition-all shadow-md px-6 py-2 text-base font-semibold"
-            >
-              {isFollowing ? "Takibi Bırak" : "Takip Et"}
-            </Button>
             {user && store.owner_id === user.id && (
               <Button
                 variant="outline"
@@ -403,7 +363,7 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
         </section>
 
         {/* Store Stats */}
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <Card className="shadow border-none">
             <CardContent className="flex flex-col items-center py-6">
               <Star className="h-6 w-6 text-yellow-400 mb-1" />
@@ -420,15 +380,8 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
           </Card>
           <Card className="shadow border-none">
             <CardContent className="flex flex-col items-center py-6">
-              <Heart className="h-6 w-6 text-pink-500 mb-1" />
-              <div className="text-xl font-bold">{store.follower_count ?? 0}</div>
-              <div className="text-xs text-muted-foreground">Takipçi</div>
-            </CardContent>
-          </Card>
-          <Card className="shadow border-none">
-            <CardContent className="flex flex-col items-center py-6">
               <Package className="h-6 w-6 text-green-600 mb-1" />
-              <div className="text-xl font-bold">{store.product_count ?? 0}</div>
+              <div className="text-xl font-bold">{products.length ?? 0}</div>
               <div className="text-xs text-muted-foreground">Ürün</div>
             </CardContent>
           </Card>
@@ -445,11 +398,11 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-4 w-4" />
-                {store.phone || <span className="italic">Belirtilmemiş</span>}
+                {store.contact_phone || store.phone || <span className="italic">Belirtilmemiş</span>}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail className="h-4 w-4" />
-                {store.email || <span className="italic">Belirtilmemiş</span>}
+                {store.contact_email || store.email || <span className="italic">Belirtilmemiş</span>}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <ShieldCheck className="h-4 w-4" />
@@ -594,16 +547,16 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               <div>
                 <Label>Puan</Label>
                 <div className="flex items-center gap-1 mt-2">
-                  {[1, 2, 3, 4, 5].map((rating) => (
-                    <button key={rating} onClick={() => setRating(rating)} className="focus:outline-none">
+                  {[1, 2, 3, 4, 5].map((ratingValue) => (
+                    <button key={ratingValue} onClick={() => setRating(ratingValue)} className="focus:outline-none">
                       <Star
                         className={cn(
                           "h-6 w-6",
-                          rating <= (hoverRating || reviewRating)
+                          ratingValue <= (hoverRating || rating)
                             ? "fill-yellow-400 text-yellow-400"
                             : "text-muted-foreground",
                         )}
-                        onMouseEnter={() => setHoverRating(rating)}
+                        onMouseEnter={() => setHoverRating(ratingValue)}
                         onMouseLeave={() => setHoverRating(null)}
                       />
                     </button>
@@ -625,7 +578,7 @@ export default function StorePage({ params }: { params: Promise<{ slug: string }
               <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
                 İptal
               </Button>
-              <Button onClick={handleReviewSubmit} disabled={!reviewRating}>
+              <Button onClick={handleReviewSubmit} disabled={!rating}>
                 Gönder
               </Button>
             </DialogFooter>

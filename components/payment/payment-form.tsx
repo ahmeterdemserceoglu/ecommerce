@@ -17,13 +17,23 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle, CreditCard, Wallet } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
+import { CartItem } from '@/providers/cart-provider'; // Assuming CartItem type is exported
+
+interface CustomerDetails {
+  userId?: string;
+  email?: string;
+  name?: string;
+  phone?: string;
+  address?: string;
+  addressId?: string | null;
+}
 
 interface PaymentFormProps {
-  orderId: string
-  amount: number
-  userId: string
-  returnUrl?: string
-  showAddCardButton?: boolean
+  totalAmount: number;
+  customerDetails: CustomerDetails;
+  cartItems: CartItem[];
+  returnUrl?: string;
+  showAddCardButton?: boolean;
 }
 
 interface SavedCard {
@@ -53,7 +63,7 @@ interface PaymentMethod {
   isDefault: boolean
 }
 
-export default function PaymentForm({ orderId, amount, userId, returnUrl, showAddCardButton }: PaymentFormProps) {
+export default function PaymentForm({ totalAmount, customerDetails, cartItems, returnUrl, showAddCardButton }: PaymentFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClientComponentClient()
@@ -80,7 +90,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
   useEffect(() => {
     async function fetchPaymentMethods() {
       try {
-        const response = await fetch(`/api/payment/methods?userId=${userId}`)
+        const response = await fetch(`/api/payment/methods?userId=${customerDetails.userId}`)
         const data = await response.json()
 
         if (data.savedCards) setSavedCards(data.savedCards)
@@ -104,7 +114,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
     }
 
     fetchPaymentMethods()
-  }, [userId, toast])
+  }, [customerDetails.userId, toast])
 
   // Eğer selectedBank boşsa ve banks varsa otomatik olarak ilk bankayı seç
   useEffect(() => {
@@ -131,7 +141,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
     // Kart tipine göre banka seçimini otomatik yap
     if (value.length >= 6) {
       const cardType = detectCardType(value)
-      const matchingBank = banks.find((bank) => bank.supportedCardTypes.includes(cardType))
+      const matchingBank = banks.find((bank) => Array.isArray(bank.supportedCardTypes) && bank.supportedCardTypes.includes(cardType))
       if (matchingBank) setSelectedBank(matchingBank.id)
     }
   }
@@ -174,7 +184,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
         if (!expiryYear) missingFields.push("Son Kullanma Yılı")
         if (!cvv || cvv.length < 3) missingFields.push("CVV")
         if (!selectedBank) missingFields.push("Banka")
-        if (!amount) missingFields.push("Tutar")
+        if (!totalAmount) missingFields.push("Tutar")
         if (missingFields.length > 0) {
           setLoading(false)
           setError(`Eksik alanlar: ${missingFields.join(", ")}`)
@@ -186,7 +196,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
         if (!selectedCard) missingFields.push("Kayıtlı Kart")
         if (!cvv || cvv.length < 3) missingFields.push("CVV")
         if (!selectedBank) missingFields.push("Banka")
-        if (!amount) missingFields.push("Tutar")
+        if (!totalAmount) missingFields.push("Tutar")
         if (missingFields.length > 0) {
           setLoading(false)
           setError(`Eksik alanlar: ${missingFields.join(", ")}`)
@@ -209,32 +219,63 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
 
         // orderId olmadan da ödeme başlatılabilsin
         const paymentPayload = {
-          userId,
-          amount,
+          userId: customerDetails.userId,
+          amount: totalAmount,
           currency: "TRY",
           paymentMethod: "CREDIT_CARD",
+          cartItems: cartItems.map(item => ({
+            id: item.productId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category1: item.storeName,
+          })),
+          customer: {
+            id: customerDetails.userId,
+            name: customerDetails.name,
+            surname: '',
+            email: customerDetails.email,
+            identityNumber: '11111111111',
+            registrationAddress: customerDetails.address,
+            ip: '127.0.0.1',
+            city: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ilçe'))?.trim() || '',
+            country: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ülke'))?.trim() || 'Turkey',
+          },
+          billingAddress: {
+            contactName: customerDetails.name,
+            city: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ilçe'))?.trim() || '',
+            country: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ülke'))?.trim() || 'Turkey',
+            address: customerDetails.address,
+            zipCode: customerDetails.address?.split(',').find(part => /\d{5}/.test(part))?.trim() || '',
+          },
+          shippingAddress: {
+            contactName: customerDetails.name,
+            city: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ilçe'))?.trim() || '',
+            country: customerDetails.address?.split(',').find(part => part.toLowerCase().includes('ülke'))?.trim() || 'Turkey',
+            address: customerDetails.address,
+            zipCode: customerDetails.address?.split(',').find(part => /\d{5}/.test(part))?.trim() || '',
+          },
           ...(selectedCard
             ? {
-                savedCardId: selectedCard,
-                cvv,
-                bankId: selectedBank,
-                installmentCount,
-                use3DSecure,
-                returnUrl: returnUrl || `${window.location.origin}/odeme/sonuc`,
-              }
+              savedCardId: selectedCard,
+              cvv,
+              bankId: selectedBank,
+              installmentCount,
+              use3DSecure,
+              returnUrl: returnUrl || `${window.location.origin}/odeme/sonuc`,
+            }
             : {
-                cardNumber: cardNumber.replace(/\s/g, ""),
-                cardHolderName,
-                expiryMonth,
-                expiryYear,
-                cvv,
-                bankId: selectedBank,
-                installmentCount,
-                use3DSecure,
-                returnUrl: returnUrl || `${window.location.origin}/odeme/sonuc`,
-              }),
+              cardNumber: cardNumber.replace(/\s/g, ""),
+              cardHolderName,
+              expiryMonth,
+              expiryYear,
+              cvv,
+              bankId: selectedBank,
+              installmentCount,
+              use3DSecure,
+              returnUrl: returnUrl || `${window.location.origin}/odeme/sonuc`,
+            }),
         }
-        if (orderId) paymentPayload.orderId = orderId
 
         const response = await fetch("/api/payment/initialize", {
           method: "POST",
@@ -485,9 +526,8 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
                             <SelectItem key={option.count} value={option.count.toString()}>
                               {option.count === 1
                                 ? "Tek Çekim"
-                                : `${option.count} Taksit ${
-                                    option.commissionRate > 0 ? `(+%${option.commissionRate})` : ""
-                                  }`}
+                                : `${option.count} Taksit ${option.commissionRate > 0 ? `(+%${option.commissionRate})` : ""
+                                }`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -526,7 +566,7 @@ export default function PaymentForm({ orderId, amount, userId, returnUrl, showAd
             Geri
           </Button>
           <Button type="submit" disabled={loading}>
-            {loading ? "İşleniyor..." : `${amount.toFixed(2)} TL Öde`}
+            {loading ? "İşleniyor..." : `${totalAmount.toFixed(2)} TL Öde`}
           </Button>
         </CardFooter>
       </Card>

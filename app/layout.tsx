@@ -4,6 +4,7 @@ import "./globals.css"
 import Header from "@/components/layout/header"
 import { AuthProvider } from "@/hooks/use-auth"
 import { CartProvider } from "@/providers/cart-provider"
+import CategoryMegaMenu from "@/components/layout/CategoryMegaMenu"
 
 export const metadata: Metadata = {
   title: "HDTicaret",

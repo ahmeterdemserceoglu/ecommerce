@@ -1,20 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,743 +26,527 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { useToast } from "@/hooks/use-toast"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { useAuth } from "@/hooks/use-auth"
 import {
-  LayoutDashboard,
-  LogOut,
-  Menu,
   MoreHorizontal,
-  Settings,
-  Store,
-  Tag,
-  Trash,
-  Users,
-  X,
-  FileText,
-  Database,
-  Bell,
-  AlertCircle,
-  ShoppingBag,
-  Star,
+  Search,
   Check,
+  X,
+  Star,
+  Ban,
+  Hourglass,
   ExternalLink,
+  Eye,
+  Edit,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  ShieldCheck,
+  ShieldOff,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2
 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { debounce } from "lodash"
+import { cn, formatCurrency, formatDate } from "@/lib/utils"
+import AdminLayout from '@/components/admin/AdminLayout'
+
+interface StoreOwner {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+}
+
+interface Store {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  user_id: string;
+  is_active?: boolean | null;
+  is_verified?: boolean | null;
+  approved?: boolean | null;
+  is_featured?: boolean | null;
+  commission_rate?: number | null;
+  created_at: string;
+  owner?: StoreOwner | null;
+}
+
+const ITEMS_PER_PAGE = 15;
 
 export default function StoresPage() {
   const router = useRouter()
-  const { user, loading: authLoading, signOut } = useAuth()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
-  const [stores, setStores] = useState<any[]>([])
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [selectedStore, setSelectedStore] = useState<any>(null)
-  const supabase = createClientComponentClient()
-  const [showUpdateAlert, setShowUpdateAlert] = useState(false)
 
-  const handleUpdateDatabase = async () => {
+  const [stores, setStores] = useState<Store[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalStores, setTotalStores] = useState(0)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
+  const [isActiveFilter, setIsActiveFilter] = useState<string>("")
+  const [isVerifiedFilter, setIsVerifiedFilter] = useState<string>("")
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+  const [confirmDialogProps, setConfirmDialogProps] = useState<{ title: string; description: string; onConfirm: () => void } | null>(null)
+
+  const debouncedSearch = useCallback(debounce((term: string) => {
+    setDebouncedSearchTerm(term)
+    setCurrentPage(1)
+  }, 500), [])
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const term = event.target.value
+    setSearchTerm(term)
+    debouncedSearch(term)
+  }
+
+  const handleActiveFilterChange = (value: string) => {
+    setIsActiveFilter(value === 'all' ? '' : value)
+    setCurrentPage(1)
+  }
+
+  const handleVerifiedFilterChange = (value: string) => {
+    setIsVerifiedFilter(value === 'all' ? '' : value)
+    setCurrentPage(1)
+  }
+
+  const fetchStoresData = useCallback(async (page = currentPage) => {
+    setLoading(true)
+    console.log(`Fetching stores: page=${page}, limit=${ITEMS_PER_PAGE}, search=${debouncedSearchTerm}, active=${isActiveFilter}, verified=${isVerifiedFilter}`)
+
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: ITEMS_PER_PAGE.toString(),
+    })
+    if (debouncedSearchTerm) params.set("searchTerm", debouncedSearchTerm)
+    if (isActiveFilter) params.set("is_active", isActiveFilter)
+    if (isVerifiedFilter) params.set("is_verified", isVerifiedFilter)
+
     try {
-      const response = await fetch("/api/admin/update-stores", {
-        method: "POST",
+      const response = await fetch(`/api/admin/stores?${params.toString()}`, {
+        cache: "no-store",
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update database")
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
-      toast({
-        title: "Başarılı",
-        description: "Veritabanı başarıyla güncellendi. Sayfa yenileniyor...",
-      })
+      const data = await response.json()
+      setStores(data.stores || [])
+      setTotalPages(data.totalPages || 1)
+      setTotalStores(data.totalStores || 0)
+      setCurrentPage(data.currentPage || page)
 
-      // Reload the page after a short delay
-      setTimeout(() => {
-        window.location.reload()
-      }, 2000)
     } catch (error: any) {
-      console.error("Error updating database:", error)
-      toast({
-        title: "Hata",
-        description: error.message || "Veritabanı güncellenirken bir hata oluştu.",
-        variant: "destructive",
-      })
+      console.error("Error fetching stores:", error)
+      toast({ title: "Hata", description: `Mağazalar getirilirken hata oluştu: ${error.message}`, variant: "destructive" })
+      setStores([])
+      setTotalPages(1)
+      setTotalStores(0)
+      setCurrentPage(1)
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [currentPage, debouncedSearchTerm, isActiveFilter, isVerifiedFilter, toast])
 
   useEffect(() => {
-    // Check if user is admin
-    if (!authLoading && user) {
-      if (user.role !== "admin") {
-        router.push("/")
-        return
+    fetchStoresData(1)
+  }, [])
+
+  useEffect(() => {
+    fetchStoresData(currentPage)
+  }, [currentPage, debouncedSearchTerm, isActiveFilter, isVerifiedFilter, fetchStoresData])
+
+  const handleStoreAction = async (storeId: string, action: string, payload?: any) => {
+    let updatePayload: any = {};
+    let successMessage = "";
+
+    switch (action) {
+      case 'activate':
+        updatePayload = { is_active: true };
+        successMessage = "Mağaza başarıyla aktif edildi.";
+        break;
+      case 'deactivate':
+        updatePayload = { is_active: false };
+        successMessage = "Mağaza başarıyla pasif edildi.";
+        break;
+      case 'verify':
+        updatePayload = { is_verified: true, approved: true };
+        successMessage = "Mağaza başarıyla doğrulandı ve onaylandı.";
+        break;
+      case 'unverify':
+        updatePayload = { is_verified: false, approved: false };
+        successMessage = "Mağaza doğrulaması ve onayı başarıyla kaldırıldı.";
+        break;
+      case 'feature':
+        updatePayload = { is_featured: true };
+        successMessage = "Mağaza başarıyla öne çıkanlara eklendi.";
+        break;
+      case 'unfeature':
+        updatePayload = { is_featured: false };
+        successMessage = "Mağaza başarıyla öne çıkanlardan kaldırıldı.";
+        break;
+      case 'delete':
+        updatePayload = { is_active: false, approved: false, is_verified: false };
+        successMessage = "Mağaza başarıyla pasif hale getirildi (silindi).";
+        break;
+      default:
+        toast({ title: "Bilinmeyen İşlem", description: `İşlem "${action}" tanınmıyor.`, variant: "destructive" });
+        return;
+    }
+
+    if (payload) {
+      updatePayload = { ...updatePayload, ...payload };
+    }
+
+    try {
+      const response = await fetch(`/api/admin/stores/${storeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.error || responseData.message || `HTTP error! status: ${response.status}`);
       }
-    } else if (!authLoading && !user) {
-      router.push("/auth/login?returnTo=/admin/stores")
-      return
-    }
-
-    const fetchStoresData = async () => {
-      setLoading(true)
-      try {
-        // First, try to create the foreign key constraint if it doesn't exist
-        try {
-          const createConstraintQuery = `
-            DO $$
-            BEGIN
-              IF NOT EXISTS (
-                SELECT 1 FROM information_schema.table_constraints 
-                WHERE constraint_name = 'stores_user_id_fkey'
-                AND table_name = 'stores'
-              ) THEN
-                ALTER TABLE IF EXISTS public.stores
-                ADD CONSTRAINT stores_user_id_fkey
-                FOREIGN KEY (user_id) REFERENCES public.profiles(id);
-              END IF;
-            END $$;
-          `
-
-          await supabase.rpc("execute_sql", { query: createConstraintQuery })
-        } catch (error) {
-          console.error("Error creating constraint:", error)
-          // Continue even if this fails
-        }
-
-        // Fetch all stores
-        const fetchedStores = await fetchStores()
-
-        setStores(fetchedStores || [])
-      } catch (error) {
-        console.error("Error fetching stores:", error)
-        setShowUpdateAlert(true)
-        toast({
-          title: "Hata",
-          description: "Mağazalar yüklenirken bir hata oluştu.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    async function fetchStores() {
-      try {
-        // First try to use the get_stores_with_owners function
-        const { data: functionData, error: functionError } = await supabase.rpc("get_stores_with_owners")
-
-        if (!functionError && functionData) {
-          return functionData
-        }
-
-        // If the function doesn't exist, fall back to the manual approach
-        // First try to get all stores
-        const { data: storesData, error: storesError } = await supabase.from("stores").select("*")
-
-        if (storesError) {
-          console.error("Error fetching stores basic data:", storesError)
-          return []
-        }
-
-        // If we have stores, try to get owner information for each store
-        if (storesData && storesData.length > 0) {
-          // Get all unique user IDs from stores
-          const userIds = storesData.map((store) => store.user_id).filter((id) => id !== null && id !== undefined)
-
-          // If we have user IDs, fetch their profiles
-          if (userIds.length > 0) {
-            const { data: profilesData, error: profilesError } = await supabase
-              .from("profiles")
-              .select("id, full_name, email")
-              .in("id", userIds)
-
-            if (!profilesError && profilesData) {
-              // Create a map of user IDs to profile data for quick lookup
-              const profilesMap = profilesData.reduce((map, profile) => {
-                map[profile.id] = profile
-                return map
-              }, {})
-
-              // Attach profile data to each store
-              return storesData.map((store) => ({
-                ...store,
-                owner_name:
-                  store.user_id && profilesMap[store.user_id] ? profilesMap[store.user_id].full_name : store.owner_name,
-                owner_email:
-                  store.user_id && profilesMap[store.user_id] ? profilesMap[store.user_id].email : store.owner_email,
-              }))
-            }
-          }
-        }
-
-        return storesData || []
-      } catch (error) {
-        console.error("Error fetching stores:", error)
-        return []
-      }
-    }
-
-    if (user && user.role === "admin") {
-      fetchStoresData()
-    }
-  }, [user, authLoading, router, supabase, toast])
-
-  const handleVerifyStore = async (id: string, isVerified: boolean) => {
-    try {
-      const { error } = await supabase.from("stores").update({ is_verified: isVerified }).eq("id", id)
-
-      if (error) throw error
 
       toast({
         title: "Başarılı",
-        description: isVerified ? "Mağaza doğrulandı." : "Mağaza doğrulaması kaldırıldı.",
-      })
+        description: successMessage,
+      });
 
-      // Update stores list
-      setStores(
-        stores.map((store) => {
-          if (store.id === id) {
-            return { ...store, is_verified: isVerified }
-          }
-          return store
-        }),
-      )
+      fetchStoresData(currentPage);
     } catch (error: any) {
-      console.error("Error updating store:", error)
+      console.error(`Error performing action "${action}" on store ${storeId}:`, error);
       toast({
         title: "Hata",
-        description: error.message || "Mağaza güncellenirken bir hata oluştu.",
+        description: error.message || `İşlem "${action}" gerçekleştirilemedi.`,
         variant: "destructive",
-      })
+      });
     }
+  };
+
+  const openConfirmationDialog = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmDialogProps({ title, description, onConfirm })
+    setIsConfirmDialogOpen(true)
   }
 
-  const handleFeatureStore = async (id: string, isFeatured: boolean) => {
-    try {
-      const { error } = await supabase.from("stores").update({ is_featured: isFeatured }).eq("id", id)
-
-      if (error) throw error
-
-      toast({
-        title: "Başarılı",
-        description: isFeatured ? "Mağaza öne çıkarıldı." : "Mağaza öne çıkarma kaldırıldı.",
-      })
-
-      // Update stores list
-      setStores(
-        stores.map((store) => {
-          if (store.id === id) {
-            return { ...store, is_featured: isFeatured }
-          }
-          return store
-        }),
-      )
-    } catch (error: any) {
-      console.error("Error updating store:", error)
-      toast({
-        title: "Hata",
-        description: error.message || "Mağaza güncellenirken bir hata oluştu.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleToggleActive = async (id: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase.from("stores").update({ is_active: isActive }).eq("id", id)
-
-      if (error) throw error
-
-      toast({
-        title: "Başarılı",
-        description: isActive ? "Mağaza aktifleştirildi." : "Mağaza devre dışı bırakıldı.",
-      })
-
-      // Update stores list
-      setStores(
-        stores.map((store) => {
-          if (store.id === id) {
-            return { ...store, is_active: isActive }
-          }
-          return store
-        }),
-      )
-    } catch (error: any) {
-      console.error("Error updating store:", error)
-      toast({
-        title: "Hata",
-        description: error.message || "Mağaza güncellenirken bir hata oluştu.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteStore = async (id: string) => {
-    try {
-      const { error } = await supabase.from("stores").delete().eq("id", id)
-
-      if (error) throw error
-
-      toast({
-        title: "Başarılı",
-        description: "Mağaza başarıyla silindi.",
-      })
-
-      // Update stores list
-      setStores(stores.filter((store) => store.id !== id))
-    } catch (error: any) {
-      console.error("Error deleting store:", error)
-      toast({
-        title: "Hata",
-        description: error.message || "Mağaza silinirken bir hata oluştu.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleViewStore = (store: any) => {
+  const handleViewStore = (store: Store) => {
     setSelectedStore(store)
     setIsViewDialogOpen(true)
   }
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Yükleniyor...</p>
-      </div>
-    )
-  }
-
-  if (!user || user.role !== "admin") {
-    return null
-  }
-
-  const sidebarItems = [
-    { icon: <LayoutDashboard className="h-5 w-5" />, label: "Dashboard", href: "/admin/dashboard" },
-    { icon: <Users className="h-5 w-5" />, label: "Kullanıcılar", href: "/admin/users" },
-    { icon: <Store className="h-5 w-5" />, label: "Mağazalar", href: "/admin/stores" },
-    { icon: <ShoppingBag className="h-5 w-5" />, label: "Ürünler", href: "/admin/products" },
-    { icon: <Tag className="h-5 w-5" />, label: "Kategoriler", href: "/admin/categories" },
-    { icon: <Bell className="h-5 w-5" />, label: "Duyurular", href: "/admin/panel/duyurular" },
-    { icon: <AlertCircle className="h-5 w-5" />, label: "Satıcı Başvuruları", href: "/admin/panel/satici-basvurulari" },
-    { icon: <FileText className="h-5 w-5" />, label: "Siparişler", href: "/admin/orders" },
-    { icon: <Database className="h-5 w-5" />, label: "Veritabanı", href: "/admin/database" },
-    { icon: <Settings className="h-5 w-5" />, label: "Ayarlar", href: "/admin/settings" },
-  ]
+  const getVerificationBadge = (isVerified?: boolean | null, isApproved?: boolean | null) => {
+    if (isVerified && isApproved) {
+      return <Badge variant="success" className="border-green-600/30 bg-green-100 text-green-700"><ShieldCheck className="h-3.5 w-3.5 mr-1" />Onaylı ve Doğrulanmış</Badge>;
+    } else if (isApproved && !isVerified) {
+      return <Badge variant="info" className="border-blue-600/30 bg-blue-100 text-blue-700"><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Onaylı (Doğrulanmamış)</Badge>;
+    } else if (!isApproved && isVerified === false) {
+      return <Badge variant="destructive" className="border-red-600/30 bg-red-100 text-red-700"><ShieldOff className="h-3.5 w-3.5 mr-1" />Onaysız/Reddedilmiş</Badge>;
+    }
+    return <Badge variant="warning" className="border-amber-600/30 bg-amber-100 text-amber-700"><Clock className="h-3.5 w-3.5 mr-1" />Beklemede</Badge>;
+  };
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Admin Panel</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="px-2 space-y-1">
-            {sidebarItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                  router.pathname === item.href
-                    ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                {item.icon}
-                <span className="ml-3">{item.label}</span>
-              </a>
-            ))}
-          </nav>
-        </div>
-        <div className="p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            Çıkış Yap
-          </Button>
-        </div>
+    <AdminLayout>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">Mağaza Yönetimi</h1>
+        <p className="text-muted-foreground">Mağazaları görüntüleyin, filtreleyin ve yönetin.</p>
       </div>
 
-      {/* Mobile Sidebar */}
-      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <SheetContent side="left" className="p-0 w-64">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
-              <X className="h-5 w-5" />
-            </Button>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Filtrele ve Ara</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="relative sm:col-span-1">
+              <Label htmlFor="search">Mağaza Ara</Label>
+              <Search className="absolute left-3 top-[calc(50%+8px)] transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                id="search"
+                placeholder="Mağaza adı veya açıklama..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="pl-10 w-full mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="activeFilter">Aktiflik Durumu</Label>
+              <Select value={isActiveFilter} onValueChange={handleActiveFilterChange}>
+                <SelectTrigger id="activeFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Tümü" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tümü</SelectItem>
+                  <SelectItem value="true">Aktif</SelectItem>
+                  <SelectItem value="false">Pasif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="verifiedFilter">Onay Durumu (is_verified)</Label>
+              <Select value={isVerifiedFilter} onValueChange={handleVerifiedFilterChange}>
+                <SelectTrigger id="verifiedFilter" className="w-full mt-1">
+                  <SelectValue placeholder="Tümü" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tümü</SelectItem>
+                  <SelectItem value="true">Onaylı (Doğrulanmış)</SelectItem>
+                  <SelectItem value="false">Onaysız (Doğrulanmamış)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto py-4">
-            <nav className="px-2 space-y-1">
-              {sidebarItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md ${
-                    router.pathname === item.href
-                      ? "bg-gray-100 dark:bg-gray-700 text-primary"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item.icon}
-                  <span className="ml-3">{item.label}</span>
-                </a>
-              ))}
-            </nav>
-          </div>
-          <div className="p-4 border-t">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                signOut()
-                setIsMobileMenuOpen(false)
-              }}
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Çıkış Yap
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+        </CardContent>
+      </Card>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-white dark:bg-gray-800 border-b p-4 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-            <Menu className="h-6 w-6" />
-          </Button>
-          <h1 className="text-xl font-bold">Mağazalar</h1>
-          <div className="w-6"></div> {/* Spacer for alignment */}
-        </div>
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Mağaza Yönetimi</h1>
-              {showUpdateAlert && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Veritabanı Hatası</AlertTitle>
-                  <AlertDescription className="flex flex-col gap-2">
-                    <p>Mağaza verileri yüklenirken bir hata oluştu. Veritabanı yapısının güncellenmesi gerekiyor.</p>
-                    <Button onClick={handleUpdateDatabase} variant="outline" size="sm" className="w-fit">
-                      Veritabanını Güncelle
-                    </Button>
-                  </AlertDescription>
-                </Alert>
+      <Card>
+        <CardHeader>
+          <CardTitle>Mağaza Listesi</CardTitle>
+          <CardDescription>Toplam {totalStores} mağaza bulundu.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]"></TableHead>
+                <TableHead>Mağaza Adı</TableHead>
+                <TableHead>Sahip</TableHead>
+                <TableHead>Aktif</TableHead>
+                <TableHead>Doğrulama/Onay</TableHead>
+                <TableHead>Öne Çıkan</TableHead>
+                <TableHead>Kayıt Tarihi</TableHead>
+                <TableHead className="text-right">İşlemler</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                      Mağazalar yükleniyor...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : stores.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    Arama kriterlerine uygun mağaza bulunamadı.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                stores.map((store) => (
+                  <TableRow key={store.id}>
+                    <TableCell>
+                      <Image
+                        src={store.logo_url || "/placeholder-logo.png"}
+                        alt={`${store.name} Logo`}
+                        width={40}
+                        height={40}
+                        className="rounded-full object-cover w-10 h-10 border"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/magaza/${store.slug}`} target="_blank" className="hover:underline hover:text-primary flex items-center gap-1.5 group">
+                        {store.name}
+                        <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </Link>
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">{store.description}</p>
+                    </TableCell>
+                    <TableCell>
+                      {store.owner ? (
+                        <div className="text-sm">
+                          {store.owner.full_name || "İsimsiz"}
+                          <p className="text-xs text-muted-foreground">{store.owner.email}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sahip Atanmamış</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={store.is_active ? 'success' : 'secondary'} className={cn("capitalize", store.is_active ? 'border-green-600/30 bg-green-100 text-green-700' : 'border-gray-600/30 bg-gray-100 text-gray-700')}>
+                        {store.is_active ? <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                        {store.is_active ? "Aktif" : "Pasif"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getVerificationBadge(store.is_verified, store.approved)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={store.is_featured ? 'default' : 'outline'} className={cn("capitalize", store.is_featured ? 'bg-purple-100 text-purple-700 border-purple-600/30' : 'text-muted-foreground')}>
+                        {store.is_featured ? <Star className="h-3.5 w-3.5 mr-1" /> : <Ban className="h-3.5 w-3.5 mr-1" />}
+                        {store.is_featured ? "Evet" : "Hayır"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatDate(store.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Menüyü aç</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewStore(store)}>
+                            <Eye className="mr-2 h-4 w-4" />Detayları Gör
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push(`/admin/stores/edit/${store.id}`)}>
+                            <Edit className="mr-2 h-4 w-4" />Düzenle
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleStoreAction(store.id, store.is_active ? 'deactivate' : 'activate')}>
+                            {store.is_active ? <ToggleLeft className="mr-2 h-4 w-4" /> : <ToggleRight className="mr-2 h-4 w-4" />}
+                            {store.is_active ? "Pasif Yap" : "Aktif Yap"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStoreAction(store.id, (store.is_verified && store.approved) ? 'unverify' : 'verify')}>
+                            {(store.is_verified && store.approved) ? <ShieldOff className="mr-2 h-4 w-4" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                            {(store.is_verified && store.approved) ? "Onay/Doğrulama Kaldır" : "Onayla ve Doğrula"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStoreAction(store.id, store.is_featured ? 'unfeature' : 'feature')}>
+                            {store.is_featured ? <Ban className="mr-2 h-4 w-4" /> : <Star className="mr-2 h-4 w-4" />}
+                            {store.is_featured ? "Öne Çıkanlardan Kaldır" : "Öne Çıkar"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => openConfirmationDialog('Mağazayı Sil', `'${store.name}' mağazasını kalıcı olarak pasif hale getirmek (silmek) istediğinizden emin misiniz?`, () => handleStoreAction(store.id, 'delete'))}
+                            className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Sil (Pasif Yap)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-            </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+        {totalPages > 1 && (
+          <CardFooter className="py-4">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); if (currentPage > 1) setCurrentPage(currentPage - 1); }}
+                    aria-disabled={currentPage <= 1}
+                    className={cn("cursor-pointer", currentPage <= 1 && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+                {[...Array(totalPages)].map((_, i) => (
+                  <PaginationItem key={i}>
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => { e.preventDefault(); setCurrentPage(i + 1); }}
+                      isActive={currentPage === i + 1}
+                      className="cursor-pointer"
+                    >
+                      {i + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) setCurrentPage(currentPage + 1); }}
+                    aria-disabled={currentPage >= totalPages}
+                    className={cn("cursor-pointer", currentPage >= totalPages && "pointer-events-none opacity-50")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </CardFooter>
+        )}
+      </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Mağazalar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Mağaza</TableHead>
-                      <TableHead>Satıcı</TableHead>
-                      <TableHead>Durum</TableHead>
-                      <TableHead>Değerlendirme</TableHead>
-                      <TableHead>Komisyon</TableHead>
-                      <TableHead>Kayıt Tarihi</TableHead>
-                      <TableHead className="text-right">İşlemler</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stores.length > 0 ? (
-                      stores.map((store) => (
-                        <TableRow key={store.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 relative rounded overflow-hidden bg-gray-100">
-                                {store.logo_url ? (
-                                  <Image
-                                    src={store.logo_url || "/placeholder.svg"}
-                                    alt={store.name}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-gray-400">
-                                    <Store className="h-5 w-5" />
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <div className="font-medium">{store.name}</div>
-                                <div className="text-sm text-muted-foreground">{store.slug}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{store.owner_name || store.owner_email || "Bilinmiyor"}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${
-                                  store.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {store.is_active ? "Aktif" : "Pasif"}
-                              </span>
-                              {store.is_verified && (
-                                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 flex items-center">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Doğrulanmış
-                                </span>
-                              )}
-                              {store.is_featured && (
-                                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 flex items-center">
-                                  <Star className="h-3 w-3 mr-1" />
-                                  Öne Çıkan
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {store.rating > 0 ? (
-                              <div className="flex items-center">
-                                <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
-                                <span>
-                                  {store.rating.toFixed(1)} ({store.review_count})
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Değerlendirme yok</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{store.commission_rate}%</TableCell>
-                          <TableCell>
-                            {new Date(store.created_at).toLocaleDateString("tr-TR", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleViewStore(store)}>
-                                  <ExternalLink className="mr-2 h-4 w-4" />
-                                  Detaylar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleVerifyStore(store.id, !store.is_verified)}>
-                                  <Check className="mr-2 h-4 w-4" />
-                                  {store.is_verified ? "Doğrulamayı Kaldır" : "Doğrula"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleFeatureStore(store.id, !store.is_featured)}>
-                                  <Star className="mr-2 h-4 w-4" />
-                                  {store.is_featured ? "Öne Çıkarmayı Kaldır" : "Öne Çıkar"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleActive(store.id, !store.is_active)}>
-                                  {store.is_active ? (
-                                    <>
-                                      <X className="mr-2 h-4 w-4" />
-                                      Devre Dışı Bırak
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Check className="mr-2 h-4 w-4" />
-                                      Aktifleştir
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <Trash className="mr-2 h-4 w-4" />
-                                      Sil
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Mağazayı Sil</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Bu mağazayı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve
-                                        mağazaya ait tüm ürünler de silinecektir.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>İptal</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDeleteStore(store.id)}
-                                        className="bg-red-500 hover:bg-red-600"
-                                      >
-                                        Sil
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4">
-                          Henüz mağaza bulunmuyor.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
-      </div>
-
-      {/* View Store Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Mağaza Detayları</DialogTitle>
-            <DialogDescription>Mağaza bilgilerini görüntüleyin.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[600px]">
           {selectedStore && (
-            <div className="grid gap-4 py-4">
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 relative rounded overflow-hidden bg-gray-100">
-                  {selectedStore.logo_url ? (
-                    <Image
-                      src={selectedStore.logo_url || "/placeholder.svg"}
-                      alt={selectedStore.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-gray-400">
-                      <Store className="h-8 w-8" />
-                    </div>
-                  )}
+            <>
+              <DialogHeader>
+                <DialogTitle>Mağaza Detayları</DialogTitle>
+                <DialogDescription>
+                  {selectedStore.name} mağazasının detayları.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right col-span-1">ID</Label>
+                  <span className="col-span-3 text-sm text-muted-foreground font-mono">{selectedStore.id}</span>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold">{selectedStore.name}</h2>
-                  <p className="text-sm text-muted-foreground">@{selectedStore.slug}</p>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Sahip</Label>
+                  <span className="col-span-3 text-sm">{selectedStore.owner?.full_name || selectedStore.owner?.email || "-"}</span>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Mağaza Bilgileri</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Açıklama:</span>
-                      <p>{selectedStore.description || "Açıklama yok"}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Adres:</span>
-                      <p>
-                        {selectedStore.address
-                          ? `${selectedStore.address}, ${selectedStore.city}, ${selectedStore.country}`
-                          : "Adres bilgisi yok"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Komisyon Oranı:</span>
-                      <p>%{selectedStore.commission_rate}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Değerlendirme:</span>
-                      <p>
-                        {selectedStore.rating > 0
-                          ? `${selectedStore.rating.toFixed(1)} (${selectedStore.review_count} değerlendirme)`
-                          : "Değerlendirme yok"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Kayıt Tarihi:</span>
-                      <p>
-                        {new Date(selectedStore.created_at).toLocaleDateString("tr-TR", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Açıklama</Label>
+                  <p className="col-span-3 text-sm text-muted-foreground">{selectedStore.description || "-"}</p>
                 </div>
-
-                <div>
-                  <h3 className="font-semibold mb-2">İletişim Bilgileri</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Satıcı:</span>
-                      <p>{selectedStore.user?.full_name || "Bilinmiyor"}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">E-posta:</span>
-                      <p>{selectedStore.contact_email || selectedStore.user?.email || "Belirtilmemiş"}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground">Telefon:</span>
-                      <p>{selectedStore.contact_phone || "Belirtilmemiş"}</p>
-                    </div>
-                  </div>
-
-                  <h3 className="font-semibold mt-4 mb-2">Durum</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          selectedStore.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {selectedStore.is_active ? "Aktif" : "Pasif"}
-                      </span>
-                      {selectedStore.is_verified && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 flex items-center">
-                          <Check className="h-3 w-3 mr-1" />
-                          Doğrulanmış
-                        </span>
-                      )}
-                      {selectedStore.is_featured && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 flex items-center">
-                          <Star className="h-3 w-3 mr-1" />
-                          Öne Çıkan
-                        </span>
-                      )}
-                    </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Slug</Label>
+                  <span className="col-span-3 text-sm font-mono">{selectedStore.slug}</span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Kayıt Tarihi</Label>
+                  <span className="col-span-3 text-sm">{formatDate(selectedStore.created_at)}</span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Durum</Label>
+                  <div className="col-span-3 flex flex-wrap gap-2">
+                    {getVerificationBadge(selectedStore.is_verified, selectedStore.approved)}
+                    <Badge variant={selectedStore.is_active ? 'success' : 'secondary'}>{selectedStore.is_active ? "Aktif" : "Pasif"}</Badge>
+                    <Badge variant={selectedStore.is_featured ? 'default' : 'outline'}>{selectedStore.is_featured ? "Öne Çıkan" : "Normal"}</Badge>
                   </div>
                 </div>
               </div>
-            </div>
+              <DialogFooter className="sm:justify-start">
+                <Button type="button" onClick={() => router.push(`/admin/stores/edit/${selectedStore.id}`)}>
+                  <Edit className="mr-2 h-4 w-4" /> Düzenle
+                </Button>
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">Kapat</Button>
+                </DialogClose>
+              </DialogFooter>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-              Kapat
-            </Button>
-            <Button
-              onClick={() => {
-                setIsViewDialogOpen(false)
-                window.open(`/magaza/${selectedStore?.slug}`, "_blank")
-              }}
-            >
-              Mağazayı Görüntüle
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialogProps?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialogProps?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { confirmDialogProps?.onConfirm(); setIsConfirmDialogOpen(false); }}>Devam Et</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AdminLayout>
   )
 }

@@ -37,6 +37,8 @@ export default function SellerSettingsPage() {
       facebook: "",
       twitter: "",
     },
+    shipping_fee: "",
+    free_shipping_threshold: "",
   })
   const [authChecked, setAuthChecked] = useState(false)
 
@@ -125,6 +127,8 @@ export default function SellerSettingsPage() {
             facebook: "",
             twitter: "",
           },
+          shipping_fee: storeData.shipping_fee?.toString() || "",
+          free_shipping_threshold: storeData.free_shipping_threshold?.toString() || "",
         })
       }
 
@@ -190,6 +194,8 @@ export default function SellerSettingsPage() {
             logo_url: formData.logo_url,
             banner_url: formData.banner_url,
             social_media: formData.social_media,
+            shipping_fee: formData.shipping_fee === undefined ? storeData.shipping_fee : Number(formData.shipping_fee),
+            free_shipping_threshold: formData.free_shipping_threshold === undefined ? storeData.free_shipping_threshold : Number(formData.free_shipping_threshold),
             updated_at: new Date().toISOString(),
           })
           .eq("id", storeData.id)
@@ -208,6 +214,8 @@ export default function SellerSettingsPage() {
           logo_url: formData.logo_url,
           banner_url: formData.banner_url,
           social_media: formData.social_media,
+          shipping_fee: Number(formData.shipping_fee) || 0,
+          free_shipping_threshold: Number(formData.free_shipping_threshold) || 0,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -284,6 +292,7 @@ export default function SellerSettingsPage() {
           <TabsTrigger value="store">Mağaza Bilgileri</TabsTrigger>
           <TabsTrigger value="appearance">Görünüm</TabsTrigger>
           <TabsTrigger value="contact">İletişim</TabsTrigger>
+          <TabsTrigger value="shipping">Kargo Ayarları</TabsTrigger>
         </TabsList>
 
         <form onSubmit={handleSubmit}>
@@ -344,8 +353,8 @@ export default function SellerSettingsPage() {
                         alt="Logo önizleme"
                         className="h-16 object-contain"
                         onError={(e) => {
-                          ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=64&width=64"
-                          ;(e.target as HTMLImageElement).alt = "Görüntü yüklenemedi"
+                          ; (e.target as HTMLImageElement).src = "/placeholder.svg?height=64&width=64"
+                            ; (e.target as HTMLImageElement).alt = "Görüntü yüklenemedi"
                         }}
                       />
                     </div>
@@ -368,8 +377,8 @@ export default function SellerSettingsPage() {
                         alt="Banner önizleme"
                         className="w-full h-32 object-cover rounded"
                         onError={(e) => {
-                          ;(e.target as HTMLImageElement).src = "/placeholder.svg?height=128&width=400"
-                          ;(e.target as HTMLImageElement).alt = "Görüntü yüklenemedi"
+                          ; (e.target as HTMLImageElement).src = "/placeholder.svg?height=128&width=400"
+                            ; (e.target as HTMLImageElement).alt = "Görüntü yüklenemedi"
                         }}
                       />
                     </div>
@@ -454,6 +463,44 @@ export default function SellerSettingsPage() {
                       />
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="shipping">
+            <Card>
+              <CardHeader>
+                <CardTitle>Kargo Ayarları</CardTitle>
+                <CardDescription>Mağazanızın kargo ücretini ve ücretsiz kargo limitini buradan belirleyebilirsiniz.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shipping_fee">Kargo Ücreti (₺)</Label>
+                  <Input
+                    id="shipping_fee"
+                    name="shipping_fee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.shipping_fee ?? storeData?.shipping_fee ?? ""}
+                    onChange={e => setFormData({ ...formData, shipping_fee: e.target.value })}
+                    placeholder="Örn: 29.90"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="free_shipping_threshold">Ücretsiz Kargo Limiti (₺)</Label>
+                  <Input
+                    id="free_shipping_threshold"
+                    name="free_shipping_threshold"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.free_shipping_threshold ?? storeData?.free_shipping_threshold ?? ""}
+                    onChange={e => setFormData({ ...formData, free_shipping_threshold: e.target.value })}
+                    placeholder="Örn: 150.00"
+                  />
+                  <p className="text-xs text-muted-foreground">Bu tutarın üzerindeki alışverişlerde kargo ücretsiz olur.</p>
                 </div>
               </CardContent>
             </Card>

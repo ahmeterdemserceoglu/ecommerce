@@ -7,14 +7,22 @@ import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRef } from "react"
+import { useRef, useState, useEffect } from "react"
 import type { Database } from "@/types/database.types"
+import { processProductData } from "@/lib/product-utils"
+import { getSignedImageUrlForAny } from "@/lib/get-signed-url"
 
 type Product = Database["public"]["Tables"]["products"]["Row"] & {
   stores: {
     id: string
     name: string
-  }
+  },
+  product_variants?: {
+    id: string;
+    price: number | null;
+    discount_price?: number | null;
+    is_default?: boolean | null;
+  }[];
 }
 
 interface DiscountedProductsShowcaseProps {
@@ -23,6 +31,30 @@ interface DiscountedProductsShowcaseProps {
 
 export function DiscountedProductsShowcase({ products }: DiscountedProductsShowcaseProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    async function signImages() {
+      const urlPromises = products.map(async (product) => {
+        if (product.image_url) {
+          try {
+            const signedUrl = await getSignedImageUrlForAny(product.image_url);
+            return { id: product.id, url: signedUrl || "/placeholder.svg" };
+          } catch (error) {
+            return { id: product.id, url: "/placeholder.svg" };
+          }
+        }
+        return { id: product.id, url: "/placeholder.svg" };
+      });
+      const results = await Promise.all(urlPromises);
+      const urlMap = results.reduce((acc, { id, url }) => {
+        acc[id] = url;
+        return acc;
+      }, {} as Record<string, string>);
+      setSignedImageUrls(urlMap);
+    }
+    if (products.length > 0) signImages();
+  }, [products]);
 
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
@@ -65,7 +97,12 @@ export function DiscountedProductsShowcase({ products }: DiscountedProductsShowc
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {products.map((product) => {
-            const discountPercentage = Math.round(((product.price - product.discount_price!) / product.price) * 100)
+            // Process product to handle variant pricing
+            const processedProduct = processProductData(product);
+            const discountPercentage = processedProduct.discount_price
+              ? Math.round(((processedProduct.price - processedProduct.discount_price) / processedProduct.price) * 100)
+              : 0;
+            const productImageUrl = signedImageUrls[product.id] || "/placeholder.svg";
 
             return (
               <Link href={`/urun/${product.id}`} key={product.id} className="flex-none w-[280px]">
@@ -73,7 +110,7 @@ export function DiscountedProductsShowcase({ products }: DiscountedProductsShowc
                   <CardContent className="p-4">
                     <div className="relative aspect-square mb-4">
                       <Image
-                        src={product.image_url || "/placeholder.png"}
+                        src={productImageUrl}
                         alt={product.name}
                         fill
                         className="object-cover rounded-lg"
@@ -85,10 +122,12 @@ export function DiscountedProductsShowcase({ products }: DiscountedProductsShowc
                     <div className="space-y-2">
                       <h3 className="font-medium line-clamp-2 group-hover:text-primary">{product.name}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-primary">{formatPrice(product.discount_price!)}</span>
-                        <span className="text-sm text-muted-foreground line-through">{formatPrice(product.price)}</span>
+                        <span className="text-lg font-bold text-primary">{formatPrice(processedProduct.discount_price || processedProduct.price)}</span>
+                        {processedProduct.discount_price && (
+                          <span className="text-sm text-muted-foreground line-through">{formatPrice(processedProduct.price)}</span>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{product.stores.name}</p>
+                      <p className="text-sm text-muted-foreground">{product.stores?.name || "Bilinmeyen Mağaza"}</p>
                     </div>
                   </CardContent>
                 </Card>

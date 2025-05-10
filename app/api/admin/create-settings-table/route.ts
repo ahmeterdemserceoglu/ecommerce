@@ -1,15 +1,46 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const cookieStore = cookies()
+  const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore })
+
+  // Admin authorization check
+  const { data: { session }, error: sessionError } = await supabaseAuth.auth.getSession()
+  if (sessionError) {
+    console.error("[API /api/admin/create-settings-table POST] Error getting session:", sessionError.message)
+    return NextResponse.json({ error: "Session error: " + sessionError.message }, { status: 500 })
+  }
+  if (!session) {
+    console.log("[API /api/admin/create-settings-table POST] No session found.")
+    return NextResponse.json({ error: "Unauthorized: No active session." }, { status: 401 })
+  }
+  const { data: userProfile, error: profileError } = await supabaseAuth
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single()
+  if (profileError) {
+    console.error(`[API /api/admin/create-settings-table POST] Error fetching profile for user ${session.user.id}:`, profileError.message)
+    return NextResponse.json({ error: "Failed to fetch user profile for authorization." }, { status: 500 })
+  }
+  if (!userProfile || userProfile.role !== 'admin') {
+    console.warn(`[API /api/admin/create-settings-table POST] Authorization failed. User role: ${userProfile?.role} (Expected 'admin')`)
+    return NextResponse.json({ error: "Unauthorized: Admin access required." }, { status: 403 })
+  }
+  console.log(`[API /api/admin/create-settings-table POST] Admin user ${session.user.id} authorized.`)
+  // End admin authorization check
+
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey)
 
     // Try using the create_settings_table function first
     try {
-      const { data, error } = await supabase.rpc("create_settings_table")
+      const { data, error } = await supabaseAdmin.rpc("create_settings_table")
 
       if (error) throw error
 
@@ -70,7 +101,7 @@ export async function POST() {
           END $$;
         `
 
-        const { error } = await supabase.rpc("exec_sql", { sql: createTableSQL })
+        const { error } = await supabaseAdmin.rpc("exec_sql", { sql: createTableSQL })
 
         if (error) throw error
 
@@ -84,7 +115,7 @@ export async function POST() {
         // Last resort: use direct SQL
         try {
           // First check if the table exists
-          const { data: tableExists } = await supabase
+          const { data: tableExists } = await supabaseAdmin
             .from("information_schema.tables")
             .select("table_name")
             .eq("table_schema", "public")
@@ -93,7 +124,7 @@ export async function POST() {
 
           if (!tableExists) {
             // Create the table using raw SQL
-            const { error } = await supabase.sql(`
+            const { error } = await supabaseAdmin.sql(`
               CREATE TABLE IF NOT EXISTS public.settings (
                 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 site_name VARCHAR(255) NOT NULL DEFAULT 'E-Commerce Marketplace',
@@ -118,7 +149,7 @@ export async function POST() {
             if (error) throw error
 
             // Insert default data
-            const { error: insertError } = await supabase.sql(`
+            const { error: insertError } = await supabaseAdmin.sql(`
               INSERT INTO public.settings (
                 site_name, 
                 site_description, 

@@ -1,0 +1,77 @@
+[
+  {
+    "pg_get_functiondef": "CREATE OR REPLACE FUNCTION public.is_admin()\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  user_role TEXT;\r\nBEGIN\r\n  -- Direct query to profiles table without using RLS\r\n  SELECT role INTO user_role FROM public.profiles WHERE id = auth.uid();\r\n  RETURN user_role = 'admin';\r\nEXCEPTION WHEN OTHERS THEN\r\n  RETURN FALSE;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "pg_get_functiondef": "CREATE OR REPLACE FUNCTION public.is_admin(user_id uuid)\n RETURNS boolean\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n      SELECT EXISTS (\r\n        SELECT 1\r\n        FROM public.profiles\r\n        WHERE id = user_id AND role = 'admin'\r\n      );\r\n$function$\n"
+  }
+]
+
+
+
+
+
+
+
+
+
+| schema_name | table_name | policy_name                                  | command_type | using_expression                                                                                       | with_check_expression                                                                                  | roles               |
+| ----------- | ---------- | -------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------- |
+| public      | stores     | Store owners can update their own store      | UPDATE       | (auth.uid() = user_id)                                                                                 | (auth.uid() = user_id)                                                                                 |                     |
+| public      | stores     | Store owners can delete their own store      | DELETE       | (auth.uid() = user_id)                                                                                 | null                                                                                                   |                     |
+| public      | stores     | Authenticated users can create stores        | INSERT       | null                                                                                                   | (auth.uid() = user_id)                                                                                 |                     |
+| public      | stores     | Satıcılar kendi mağazalarını yönetebilir     | ALL          | (user_id = auth.uid())                                                                                 | null                                                                                                   |                     |
+| public      | stores     | Adminler tüm mağazaları yönetebilir          | ALL          | ((auth.jwt() ->> 'role'::text) = 'admin'::text)                                                        | null                                                                                                   |                     |
+| public      | stores     | Stores are viewable by everyone              | SELECT       | true                                                                                                   | null                                                                                                   |                     |
+| public      | stores     | Stores are insertable by authenticated users | INSERT       | null                                                                                                   | (auth.uid() = owner_id)                                                                                |                     |
+| public      | stores     | Stores are updatable by owner                | UPDATE       | (auth.uid() = owner_id)                                                                                | null                                                                                                   |                     |
+| public      | stores     | Admins have full access to stores            | ALL          | (auth.uid() IN ( SELECT profiles.id
+   FROM profiles
+  WHERE ((profiles.role)::text = 'admin'::text))) | (auth.uid() IN ( SELECT profiles.id
+   FROM profiles
+  WHERE ((profiles.role)::text = 'admin'::text))) |                     |
+| public      | stores     | Stores are editable by owners                | ALL          | (user_id = auth.uid())                                                                                 | null                                                                                                   | authenticated       |
+| public      | stores     | Mağazaları herkes görebilir                  | SELECT       | true                                                                                                   | null                                                                                                   |                     |
+| public      | stores     | Herkes mağazaları görebilir                  | SELECT       | true                                                                                                   | null                                                                                                   |                     |
+| public      | stores     | Public stores access                         | SELECT       | true                                                                                                   | null                                                                                                   |                     |
+| public      | stores     | stores_viewable_by_everyone                  | SELECT       | true                                                                                                   | null                                                                                                   | authenticated, anon |
+| public      | stores     | Admins can manage all stores.                | ALL          | is_admin(auth.uid())                                                                                   | is_admin(auth.uid())                                                                                   |                     |
+| public      | stores     | Admins can select all stores                 | SELECT       | is_admin(auth.uid())                                                                                   | null                                                                                                   | authenticated       |
+
+
+
+
+
+
+
+
+
+
+| schema_name | table_name | policy_name                                    | command_type | using_expression                                                                           | with_check_expression               | roles                             |
+| ----------- | ---------- | ---------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------ | ----------------------------------- | --------------------------------- |
+| public      | profiles   | Profiles are viewable by everyone              | SELECT       | true                                                                                       | null                                |                                   |
+| public      | profiles   | Kullanıcılar kendi profillerini düzenleyebilir | UPDATE       | (id = auth.uid())                                                                          | null                                | authenticated                     |
+| public      | profiles   | Sistem profil oluşturabilir                    | INSERT       | null                                                                                       | true                                | authenticated, anon, service_role |
+| public      | profiles   | Service role access                            | ALL          | (current_setting('role'::text) = 'service_role'::text)                                     | null                                |                                   |
+| public      | profiles   | Service role update                            | UPDATE       | true                                                                                       | null                                |                                   |
+| public      | profiles   | View own profile                               | SELECT       | ((id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text)) | null                                |                                   |
+| public      | profiles   | Update own profile                             | UPDATE       | ((id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'sub'::text)) | null                                |                                   |
+| public      | profiles   | Insert profile                                 | INSERT       | null                                                                                       | true                                |                                   |
+| public      | profiles   | service_role_access                            | ALL          | true                                                                                       | null                                | service_role                      |
+| public      | profiles   | anon_read_public_profiles                      | SELECT       | true                                                                                       | null                                | anon                              |
+| public      | profiles   | authenticated_read_profiles                    | SELECT       | true                                                                                       | null                                | authenticated                     |
+| public      | profiles   | users_update_own_profile                       | UPDATE       | ((id)::text = get_user_id_direct())                                                        | null                                | authenticated                     |
+| public      | profiles   | users_insert_own_profile                       | INSERT       | null                                                                                       | ((id)::text = get_user_id_direct()) | authenticated                     |
+| public      | profiles   | insert_own_profile                             | INSERT       | null                                                                                       | (auth.uid() = id)                   | authenticated                     |
+| public      | profiles   | select_own_profile                             | SELECT       | (auth.uid() = id)                                                                          | null                                | authenticated                     |
+| public      | profiles   | update_own_profile                             | UPDATE       | (auth.uid() = id)                                                                          | null                                | authenticated                     |
+| public      | profiles   | profiles_select_policy                         | SELECT       | true                                                                                       | null                                | authenticated                     |
+| public      | profiles   | profiles_insert_policy                         | INSERT       | null                                                                                       | (auth.uid() = id)                   | authenticated                     |
+| public      | profiles   | profiles_update_policy                         | UPDATE       | (auth.uid() = id)                                                                          | null                                | authenticated                     |
+| public      | profiles   | Kullanıcılar kendi profillerini görebilir      | SELECT       | (id = auth.uid())                                                                          | null                                |                                   |
+| public      | profiles   | Users can view their own profile               | SELECT       | (auth.uid() = id)                                                                          | null                                |                                   |
+| public      | profiles   | Users can insert their own profile             | INSERT       | null                                                                                       | (auth.uid() = id)                   |                                   |
+| public      | profiles   | Users can delete their own profile             | DELETE       | (auth.uid() = id)                                                                          | null                                |                                   |
+| public      | profiles   | Users can update their own profile             | UPDATE       | (auth.uid() = id)                                                                          | null                                |                                   |
+| public      | profiles   | Admins can read all profiles                   | SELECT       | is_admin(auth.uid())                                                                       | null                                | authenticated                     |
+| public      | profiles   | Users can read their own profile               | SELECT       | (auth.uid() = id)                                                                          | null                                | authenticated                     |

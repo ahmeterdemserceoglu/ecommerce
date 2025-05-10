@@ -6,21 +6,25 @@ import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 import Link from "next/link"
 import { formatPrice } from "@/lib/utils"
+import { processProductData, getDiscountPercentage } from "@/lib/product-utils"
 
 export const dynamic = "force-dynamic"
 
 export default async function FeaturedProductsPage() {
   const supabase = createServerComponentClient<Database>({ cookies })
 
-  const { data: products } = await supabase
+  const { data: rawProducts } = await supabase
     .from("products")
     .select(`
       id,
       name,
+      slug,
       price,
       discount_price,
       image_url,
       store_id,
+      has_variants,
+      product_variants(*),
       stores!inner (
         id,
         name
@@ -29,6 +33,9 @@ export default async function FeaturedProductsPage() {
     .eq("is_featured", true)
     .order("created_at", { ascending: false })
     .limit(20)
+
+  // Process all products to ensure correct pricing
+  const products = rawProducts ? rawProducts.map(product => processProductData(product)) : []
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -40,12 +47,10 @@ export default async function FeaturedProductsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {products?.map((product) => {
-            const discountPercentage = product.discount_price
-              ? Math.round(((product.price - product.discount_price) / product.price) * 100)
-              : 0
+            const discountPercentage = getDiscountPercentage(product)
 
             return (
-              <Link href={`/urun/${product.id}`} key={product.id}>
+              <Link href={`/urun/${product.slug}`} key={product.id}>
                 <Card className="group hover:shadow-lg transition-shadow duration-200">
                   <CardContent className="p-4">
                     <div className="relative aspect-square mb-4">

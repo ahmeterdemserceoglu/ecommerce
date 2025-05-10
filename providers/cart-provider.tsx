@@ -6,7 +6,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 
-type CartItem = {
+export type CartItem = {
   id: string
   productId: string
   slug: string // ürün slug
@@ -20,6 +20,7 @@ type CartItem = {
   storeSlug: string // mağaza slug
   variantName?: string
   options?: Record<string, string>
+  categoryId?: string // ürün kategorisi
 }
 
 type CartContextType = {
@@ -39,13 +40,13 @@ export const CartContext = createContext<CartContextType>({
   cartItems: [],
   cartItemsCount: 0,
   cartTotal: 0,
-  addToCart: async () => {},
-  updateQuantity: async () => {},
-  removeFromCart: async () => {},
-  clearCart: async () => {},
+  addToCart: async () => { },
+  updateQuantity: async () => { },
+  removeFromCart: async () => { },
+  clearCart: async () => { },
   loading: true,
   error: null,
-  reloadCart: async () => {},
+  reloadCart: async () => { },
 })
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -259,6 +260,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                         price,
                         discount_price,
                         store_id,
+                        category_id,
                         stores(id, name, slug)
                       `)
                       .eq("id", item.product_id)
@@ -343,6 +345,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                       storeSlug: storeSlug || `store-${storeId}`,
                       variantName,
                       options,
+                      categoryId: product.category_id,
                     }
                   } catch (itemError: any) {
                     console.error(`Sepet öğesi işlenirken hata (${item.id}):`, itemError)
@@ -454,65 +457,90 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (cartId === "local-cart") {
+          // Local cart için aynı ürün+varyant varsa miktarı artır, yoksa yeni satır ekle
+          const existingIndex = cartItems.findIndex(
+            (ci) => ci.productId === item.productId && ci.variantId === item.variantId
+          );
+          if (existingIndex !== -1) {
+            // Aynı ürün ve varyant varsa miktarı artır
+            const updatedItems = [...cartItems];
+            updatedItems[existingIndex].quantity += item.quantity;
+            setCartItems(updatedItems);
+            toast({ title: "Ürün sepete eklendi (yerel)", description: item.name });
+          } else {
+            // Farklı varyant ise yeni satır olarak ekle
+            setCartItems([
+              ...cartItems,
+              { ...item, id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` },
+            ]);
+            toast({ title: "Ürün sepete eklendi (yerel)", description: item.name });
+          }
+        } else {
+          const { data: existing, error: findError } = await supabase
+            .from("cart_items")
+            .select("id, quantity")
+            .eq("cart_id", cartId)
+            .eq("product_id", String(item.productId)) // String'e çevirin
+            .eq("variant_id", item.variantId ? String(item.variantId) : null)
+            .maybeSingle()
+          console.log("Var olan cart_item:", existing, "Hata:", findError)
+
+          if (findError) {
+            toast({ title: "Sepet kontrol hatası", description: findError.message, variant: "destructive" })
+            console.error("Sepet kontrol hatası:", findError)
+            throw findError
+          }
+
+          if (existing && existing.id) {
+            const { error: updateError } = await supabase
+              .from("cart_items")
+              .update({ quantity: existing.quantity + item.quantity })
+              .eq("id", existing.id)
+            if (updateError) {
+              toast({ title: "Sepete eklenemedi", description: updateError.message, variant: "destructive" })
+              console.error("Sepete eklenemedi (update):", updateError)
+              throw updateError
+            }
+          } else {
+            const { data: insertData, error: addError } = await supabase
+              .from("cart_items")
+              .insert({
+                cart_id: cartId,
+                product_id: String(item.productId), // String'e çevirin
+                variant_id: item.variantId ? String(item.variantId) : null,
+                quantity: item.quantity,
+              })
+              .select("id")
+              .single()
+            console.log("Insert sonucu:", insertData, "Hata:", addError)
+            if (addError) {
+              toast({ title: "Sepete eklenemedi", description: addError.message, variant: "destructive" })
+              console.error("Sepete eklenemedi (insert):", addError)
+              throw addError
+            }
+          }
+          await reloadCart()
+          toast({ title: "Ürün sepete eklendi", description: item.name })
+        }
+      } else {
+        // Local cart için aynı ürün+varyant varsa miktarı artır, yoksa yeni satır ekle
+        const existingIndex = cartItems.findIndex(
+          (ci) => ci.productId === item.productId && ci.variantId === item.variantId
+        );
+        if (existingIndex !== -1) {
+          // Aynı ürün ve varyant varsa miktarı artır
+          const updatedItems = [...cartItems];
+          updatedItems[existingIndex].quantity += item.quantity;
+          setCartItems(updatedItems);
+          toast({ title: "Ürün sepete eklendi (yerel)", description: item.name });
+        } else {
+          // Farklı varyant ise yeni satır olarak ekle
           setCartItems([
             ...cartItems,
             { ...item, id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` },
-          ])
-          toast({ title: "Ürün sepete eklendi (yerel)", description: item.name })
-          return
+          ]);
+          toast({ title: "Ürün sepete eklendi (yerel)", description: item.name });
         }
-
-        const { data: existing, error: findError } = await supabase
-          .from("cart_items")
-          .select("id, quantity")
-          .eq("cart_id", cartId)
-          .eq("product_id", String(item.productId)) // String'e çevirin
-          .eq("variant_id", item.variantId ? String(item.variantId) : null)
-          .maybeSingle()
-        console.log("Var olan cart_item:", existing, "Hata:", findError)
-
-        if (findError) {
-          toast({ title: "Sepet kontrol hatası", description: findError.message, variant: "destructive" })
-          console.error("Sepet kontrol hatası:", findError)
-          throw findError
-        }
-
-        if (existing && existing.id) {
-          const { error: updateError } = await supabase
-            .from("cart_items")
-            .update({ quantity: existing.quantity + item.quantity })
-            .eq("id", existing.id)
-          if (updateError) {
-            toast({ title: "Sepete eklenemedi", description: updateError.message, variant: "destructive" })
-            console.error("Sepete eklenemedi (update):", updateError)
-            throw updateError
-          }
-        } else {
-          const { data: insertData, error: addError } = await supabase
-            .from("cart_items")
-            .insert({
-              cart_id: cartId,
-              product_id: String(item.productId), // String'e çevirin
-              variant_id: item.variantId ? String(item.variantId) : null,
-              quantity: item.quantity,
-            })
-            .select("id")
-            .single()
-          console.log("Insert sonucu:", insertData, "Hata:", addError)
-          if (addError) {
-            toast({ title: "Sepete eklenemedi", description: addError.message, variant: "destructive" })
-            console.error("Sepete eklenemedi (insert):", addError)
-            throw addError
-          }
-        }
-        await reloadCart()
-        toast({ title: "Ürün sepete eklendi", description: item.name })
-      } else {
-        setCartItems([
-          ...cartItems,
-          { ...item, id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` },
-        ])
-        toast({ title: "Ürün sepete eklendi (yerel)", description: item.name })
       }
     } catch (error: any) {
       toast({
