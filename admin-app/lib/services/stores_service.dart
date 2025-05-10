@@ -29,7 +29,7 @@ class StoresService {
         if (search != null && search.isNotEmpty) 'search': search,
       };
 
-      final uri = Uri.parse('$apiBaseUrl$storesEndpoint').replace(
+      final uri = Uri.parse('$apiBaseUrl/admin/stores').replace(
         queryParameters: queryParams,
       );
 
@@ -40,7 +40,7 @@ class StoresService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List<dynamic> storesList = data['stores'];
+        final List<dynamic> storesList = data['stores'] ?? data['data'] ?? [];
         return storesList.map((json) => Store.fromJson(json)).toList();
       } else {
         throw Exception('Failed to fetch stores: ${response.body}');
@@ -53,7 +53,7 @@ class StoresService {
   Future<Store> getStoreById(String id) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiBaseUrl$storesEndpoint/$id'),
+        Uri.parse('$apiBaseUrl/admin/stores/$id'),
         headers: await _getHeaders(),
       );
 

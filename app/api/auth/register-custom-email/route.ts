@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: "signup", // Onaylama tipi 'signup'
             email: email,
-            // redirect_to: 'http://localhost:3000/auth/callback' // Onay sonrası yönlendirilecek sayfa (opsiyonel)
+            redirect_to: process.env.NEXT_PUBLIC_SITE_URL + "/auth/callback" // Onay sonrası yönlendirilecek sayfa
         });
 
         if (linkError || !linkData?.properties?.confirmation_url) {

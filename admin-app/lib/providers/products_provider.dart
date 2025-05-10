@@ -88,7 +88,7 @@ class ProductsProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      await _productsService.rejectProduct(id, reason: reason);
+      await _productsService.rejectProduct(id, reason ?? '');
 
       // Update product in the list
       final index = _products.indexWhere((p) => p.id == id);

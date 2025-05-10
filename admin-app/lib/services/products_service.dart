@@ -29,7 +29,7 @@ class ProductsService {
         if (search != null && search.isNotEmpty) 'search': search,
       };
 
-      final uri = Uri.parse('$apiBaseUrl$productsEndpoint').replace(
+      final uri = Uri.parse('$apiBaseUrl/admin/products').replace(
         queryParameters: queryParams,
       );
 
@@ -53,7 +53,7 @@ class ProductsService {
   Future<Product> getProductById(String id) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiBaseUrl$productsEndpoint/$id'),
+        Uri.parse('$apiBaseUrl/admin/products/$id'),
         headers: await _getHeaders(),
       );
 
@@ -71,7 +71,7 @@ class ProductsService {
   Future<Product> updateProductStatus(String id, String status) async {
     try {
       final response = await http.patch(
-        Uri.parse('$apiBaseUrl$productsEndpoint/$id'),
+        Uri.parse('$apiBaseUrl/admin/products/$id'),
         headers: await _getHeaders(),
         body: jsonEncode({
           'status': status,
@@ -90,35 +90,23 @@ class ProductsService {
   }
 
   Future<void> approveProduct(String id) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl$productsEndpoint/$id/approve'),
-        headers: await _getHeaders(),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to approve product: ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/admin/products/$id/approve'),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to approve product: ${response.body}');
     }
   }
 
-  Future<void> rejectProduct(String id, {String? reason}) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl$productsEndpoint/$id/reject'),
-        headers: await _getHeaders(),
-        body: jsonEncode({
-          'reason': reason,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to reject product: ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
+  Future<void> rejectProduct(String id, String reason) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/admin/products/$id/reject'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'reject_reason': reason}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to reject product: ${response.body}');
     }
   }
 

@@ -14,7 +14,10 @@ class SupabaseService {
 
   // Initialize Supabase
   Future<void> initialize() async {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      debugPrint('[SupabaseService] Already initialized.');
+      return;
+    }
     // Try to load from secure storage first
     try {
       final storedUrl = await _storage.read(key: 'supabase_url');
@@ -34,21 +37,38 @@ class SupabaseService {
     } catch (e) {
       _supabaseUrl = supabaseUrl;
       _supabaseAnonKey = supabaseAnonKey;
-      debugPrint('Error loading Supabase credentials: $e');
+      debugPrint('[SupabaseService] Error loading Supabase credentials: $e');
     }
     if (_supabaseUrl == 'YOUR_SUPABASE_URL' ||
         _supabaseAnonKey == 'YOUR_SUPABASE_ANON_KEY') {
       debugPrint(
-          'Warning: Using placeholder Supabase credentials. API calls will fail.');
+          '[SupabaseService] Warning: Using placeholder Supabase credentials. API calls will fail.');
     }
-    if (!_isInitialized) {
+    try {
       await supabase.Supabase.initialize(
         url: _supabaseUrl,
         anonKey: _supabaseAnonKey,
       );
       _isInitialized = true;
+      debugPrint(
+          '[SupabaseService] Supabase initialized with URL: $_supabaseUrl');
+    } catch (e) {
+      debugPrint('[SupabaseService] Supabase initialize error: $e');
+      rethrow;
     }
     _client = supabase.Supabase.instance.client;
+  }
+
+  // Test Supabase connection
+  Future<void> testConnection() async {
+    try {
+      await initialize();
+      final response =
+          await _client.from('profiles').select().limit(1).maybeSingle();
+      debugPrint('[SupabaseService] Test connection response: $response');
+    } catch (e) {
+      debugPrint('[SupabaseService] Test connection error: $e');
+    }
   }
 
   // Get the Supabase client

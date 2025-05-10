@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../utils/constants.dart';
 import 'supabase_service.dart';
+import 'package:flutter/foundation.dart';
 
 class DatabaseService {
   final FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -19,18 +20,17 @@ class DatabaseService {
   // Method to initialize database connection
   Future<bool> initializeDatabase() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-
-      // If we can't use direct Supabase, fallback to API
+      final url = '$apiBaseUrl/admin/initialize-database';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/admin/initialize-database'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       return response.statusCode == 200;
     } catch (e) {
-      print('Database initialization error: $e');
+      debugPrint('[DatabaseService] Database initialization error: $e');
       return false;
     }
   }
@@ -38,56 +38,40 @@ class DatabaseService {
   // Method to execute a SQL query
   Future<Map<String, dynamic>> executeQuery(String sql) async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      final supabaseResponse = await _supabaseService.executeQuery(sql);
-      // If no exception, return data
-      return {
-        'data': supabaseResponse.data,
-        'error': null,
-      };
-    } catch (e) {
-      print('Query execution error: $e');
-      // Fallback to API
-      try {
-        final response = await http.post(
-          Uri.parse('$apiBaseUrl/api/admin/execute-query'),
-          headers: await _getHeaders(),
-          body: jsonEncode({
-            'sql': sql,
-          }),
-        );
-        if (response.statusCode == 200) {
-          return jsonDecode(response.body);
-        } else {
-          throw Exception('Failed to execute query: \\${response.body}');
-        }
-      } catch (apiError) {
-        return {'error': apiError.toString()};
+      final url = '$apiBaseUrl/admin/execute-query';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode({'sql': sql}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to execute query: ${response.body}');
       }
+    } catch (e) {
+      debugPrint('[DatabaseService] Query execution error: $e');
+      return {'error': e.toString()};
     }
   }
 
   // Method to update database schema
   Future<bool> updateDatabaseSchema() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      final success = await _supabaseService.updateDatabaseSchema();
-
-      if (success) {
-        return true;
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/update-database-schema';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/admin/update-database-schema'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       return response.statusCode == 200;
     } catch (e) {
-      print('Schema update error: $e');
+      debugPrint('[DatabaseService] Schema update error: $e');
       return false;
     }
   }
@@ -95,23 +79,17 @@ class DatabaseService {
   // Method to update database functions
   Future<bool> updateDatabaseFunctions() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      final success = await _supabaseService.updateDatabaseFunctions();
-
-      if (success) {
-        return true;
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/update-database-functions';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/admin/update-database-functions'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       return response.statusCode == 200;
     } catch (e) {
-      print('Functions update error: $e');
+      debugPrint('[DatabaseService] Functions update error: $e');
       return false;
     }
   }
@@ -119,28 +97,21 @@ class DatabaseService {
   // Method to check database health
   Future<Map<String, dynamic>> checkDatabaseHealth() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      try {
-        final supabaseHealth = await _supabaseService.getDatabaseHealth();
-        return supabaseHealth;
-      } catch (_) {
-        // Continue with API fallback
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/database-health';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.get(
-        Uri.parse('$apiBaseUrl/api/admin/database-health'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
         throw Exception('Failed to check database health: ${response.body}');
       }
     } catch (e) {
-      print('Database health check error: $e');
+      debugPrint('[DatabaseService] Database health check error: $e');
       // Return a minimal health report with the error
       return {
         'status': 'error',
@@ -155,23 +126,14 @@ class DatabaseService {
   // Method to backup database
   Future<String> backupDatabase() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      try {
-        final backupUrl = await _supabaseService.createDatabaseBackup();
-        if (backupUrl.isNotEmpty) {
-          return backupUrl;
-        }
-      } catch (_) {
-        // Continue with API fallback
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/database-backup';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/admin/database-backup'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['backupUrl'] ?? 'Backup completed';
@@ -179,7 +141,7 @@ class DatabaseService {
         throw Exception('Failed to backup database: ${response.body}');
       }
     } catch (e) {
-      print('Database backup error: $e');
+      debugPrint('[DatabaseService] Database backup error: $e');
       rethrow;
     }
   }
@@ -187,21 +149,14 @@ class DatabaseService {
   // Method to get database tables
   Future<List<String>> getDatabaseTables() async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      try {
-        final tables = await _supabaseService.getDatabaseTables();
-        return List<String>.from(tables);
-      } catch (_) {
-        // Continue with API fallback
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/database-tables';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.get(
-        Uri.parse('$apiBaseUrl/api/admin/database-tables'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return List<String>.from(data['tables']);
@@ -209,7 +164,7 @@ class DatabaseService {
         throw Exception('Failed to get database tables: ${response.body}');
       }
     } catch (e) {
-      print('Getting tables error: $e');
+      debugPrint('[DatabaseService] Getting tables error: $e');
       return [];
     }
   }
@@ -217,21 +172,14 @@ class DatabaseService {
   // Method to get table schema
   Future<List<Map<String, dynamic>>> getTableSchema(String tableName) async {
     try {
-      // Try with Supabase first
-      await _supabaseService.initialize();
-      try {
-        final schema = await _supabaseService.getTableSchema(tableName);
-        return List<Map<String, dynamic>>.from(schema);
-      } catch (_) {
-        // Continue with API fallback
-      }
-
-      // Fallback to API
+      final url = '$apiBaseUrl/admin/database-schema/$tableName';
+      final headers = await _getHeaders();
+      debugPrint('[DatabaseService] Requesting: $url');
+      debugPrint('[DatabaseService] Headers: $headers');
       final response = await http.get(
-        Uri.parse('$apiBaseUrl/api/admin/database-schema/$tableName'),
-        headers: await _getHeaders(),
+        Uri.parse(url),
+        headers: headers,
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data['schema']);
@@ -239,7 +187,7 @@ class DatabaseService {
         throw Exception('Failed to get table schema: ${response.body}');
       }
     } catch (e) {
-      print('Getting schema error: $e');
+      debugPrint('[DatabaseService] Getting schema error: $e');
       return [];
     }
   }

@@ -144,4 +144,21 @@ class AuthService {
       return false;
     }
   }
+
+  Future<models.User?> getProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/api/auth/profile'),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return models.User.fromJson(data['user'] ?? data);
+      } else {
+        throw Exception('Failed to fetch profile: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

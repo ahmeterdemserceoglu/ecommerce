@@ -31,7 +31,7 @@ class OrdersService {
         if (storeId != null) 'storeId': storeId,
       };
 
-      final uri = Uri.parse('$apiBaseUrl$ordersEndpoint').replace(
+      final uri = Uri.parse('$apiBaseUrl/orders').replace(
         queryParameters: queryParams,
       );
 
@@ -42,7 +42,7 @@ class OrdersService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List<dynamic> ordersList = data['orders'];
+        final List<dynamic> ordersList = data['orders'] ?? data['data'] ?? [];
         return ordersList.map((json) => Order.fromJson(json)).toList();
       } else {
         throw Exception('Failed to fetch orders: ${response.body}');
@@ -55,7 +55,7 @@ class OrdersService {
   Future<Order> getOrderById(String id) async {
     try {
       final response = await http.get(
-        Uri.parse('$apiBaseUrl$ordersEndpoint/$id'),
+        Uri.parse('$apiBaseUrl/orders/$id'),
         headers: await _getHeaders(),
       );
 
