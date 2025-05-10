@@ -3,11 +3,13 @@ import '../models/category.dart';
 import '../services/api_service.dart';
 
 class CategoryProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService;
 
   List<Category> _categories = [];
   bool _isLoading = false;
   String? _error;
+
+  CategoryProvider({required ApiService apiService}) : _apiService = apiService;
 
   List<Category> get categories => _categories;
   bool get isLoading => _isLoading;

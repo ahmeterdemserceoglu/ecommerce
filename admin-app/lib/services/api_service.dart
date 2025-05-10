@@ -46,6 +46,10 @@ class ApiService {
       final uri = Uri.parse('$_baseUrl/admin/products')
           .replace(queryParameters: queryParameters);
 
+      // Log the headers before sending the request
+      print('[ApiService fetchProducts] Sending URI: $uri');
+      print('[ApiService fetchProducts] Sending headers: $_headers');
+
       final response = await http.get(
         uri,
         headers: _headers,

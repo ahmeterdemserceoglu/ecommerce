@@ -22,9 +22,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isLoggedIn = await authProvider.isLoggedIn();
+    final bool isAuthenticated = await authProvider.tryAutoLogin();
     if (!mounted) return;
-    if (isLoggedIn) {
+    if (isAuthenticated) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );

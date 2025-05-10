@@ -10,25 +10,39 @@ import 'providers/stores_provider.dart';
 import 'providers/database_provider.dart';
 import 'providers/category_provider.dart';
 import 'utils/theme.dart';
+import 'services/auth_service.dart';
+import 'services/api_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  final authService = AuthService();
+  final apiService = ApiService();
+
+  runApp(MyApp(authService: authService, apiService: apiService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final AuthService authService;
+  final ApiService apiService;
+
+  const MyApp({Key? key, required this.authService, required this.apiService})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ProductsProvider()),
-        ChangeNotifierProvider(create: (_) => OrdersProvider()),
+        ChangeNotifierProvider(
+            create: (_) =>
+                AuthProvider(authService: authService, apiService: apiService)),
+        ChangeNotifierProvider(
+            create: (_) => ProductsProvider(apiService: apiService)),
+        ChangeNotifierProvider(
+            create: (_) => OrdersProvider(apiService: apiService)),
         ChangeNotifierProvider(create: (_) => StoresProvider()),
         ChangeNotifierProvider(create: (_) => DatabaseProvider()),
-        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(
+            create: (_) => CategoryProvider(apiService: apiService)),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {

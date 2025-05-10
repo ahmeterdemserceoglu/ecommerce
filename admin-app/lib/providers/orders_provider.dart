@@ -5,7 +5,7 @@ import '../services/api_service.dart';
 
 class OrdersProvider with ChangeNotifier {
   final OrdersService _ordersService = OrdersService();
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService;
   List<Order> _orders = [];
   bool _isLoading = false;
   String? _error;
@@ -15,6 +15,8 @@ class OrdersProvider with ChangeNotifier {
   String? _searchQuery;
   String? _statusFilter;
   String? _storeIdFilter;
+
+  OrdersProvider({required ApiService apiService}) : _apiService = apiService;
 
   List<Order> get orders => _orders;
   bool get isLoading => _isLoading;

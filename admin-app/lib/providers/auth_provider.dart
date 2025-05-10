@@ -26,8 +26,11 @@ class AuthProvider with ChangeNotifier {
         _apiService = apiService;
 
   Future<bool> tryAutoLogin() async {
-    _isLoading = true;
-    notifyListeners();
+    if (!_isLoading) {
+      _isLoading = true;
+      notifyListeners();
+    }
+
     try {
       final token = await _authService.getToken();
       if (token != null && token.isNotEmpty) {
@@ -36,21 +39,22 @@ class AuthProvider with ChangeNotifier {
         if (isValid) {
           _apiService.setToken(token);
           _currentUser = await _authService.getCurrentUser();
-          _isLoading = false;
-          notifyListeners();
           return true;
         }
       }
-      _isLoading = false;
       _apiService.setToken('');
-      notifyListeners();
+      _currentUser = null;
       return false;
     } catch (e) {
-      _isLoading = false;
       _error = 'Oturum otomatik doğrulanamadı: $e';
       _apiService.setToken('');
-      notifyListeners();
+      _currentUser = null;
       return false;
+    } finally {
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
