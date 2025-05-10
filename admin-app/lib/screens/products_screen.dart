@@ -35,7 +35,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load products: $e';
+        _errorMessage = 'Ürünler yüklenemedi: $e';
         _isLoading = false;
       });
     }
@@ -45,16 +45,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Products'),
+        title: const Text('Ürünler'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
+            tooltip: 'Ürün Ekle',
             onPressed: () {
               Navigator.pushNamed(context, '/admin/products/add');
             },
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Yenile',
             onPressed: _fetchProducts,
           ),
         ],
@@ -68,7 +70,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   onRetry: _fetchProducts,
                 )
               : _products.isEmpty
-                  ? const Center(child: Text('No products found.'))
+                  ? const Center(child: Text('Hiç ürün bulunamadı.'))
                   : Responsive(
                       mobile: _buildProductsGrid(context, 1),
                       tablet: _buildProductsGrid(context, 2),
@@ -142,7 +144,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '\$${product.price.toStringAsFixed(2)}',
+                          '₺${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Theme.of(context).colorScheme.primary,
@@ -151,7 +153,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Stock: ${product.stock}',
+                          'Stok: ${product.stock}',
                           style: const TextStyle(
                             fontSize: 14,
                             color: Colors.grey,
